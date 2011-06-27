@@ -1,0 +1,804 @@
+you can find here certain information about graphics operation in 
+
+LOGLAN version DOS
+________________________________________________________________________
+
+
+IIUWGRAF	- basic graphics support for MICROSOFT compilers:
+
+		FORTRAN 77 vsn 3.31
+		PASCAL	   vsn 3.31
+	and
+		Lattice C  vsn 2.14
+
+	for IBM color graphics card & Hercules II monochrome card
+
+
+
+Osrodek Obliczeniowy,
+Instytut Informatyki Uniwersytetu Warszawskiego,
+00-901 Warszawa, PKiN VIII p.
+tel. (0048)22-200211-4028
+
+
+
+
+
+general info
+------------
+
+	Drawing is done by issuing calls to subroutines which
+	modify the contents of a bitmap video buffer. Its contents
+	usually is directly displayed on the screen, so the 
+	changes are seen immediately.
+	The video buffer assignment, however, can be changed to
+	point to a user-supplied block of memory. In this case,
+	the changes in bitmap setting are not displayed and even
+	putting the real screen into graphics mode is not necessary.
+	The drawing may be constructed silently, saved away
+	and restored later on an active display or output to
+	a binary file.
+	The Hercules card offers additional possibilities of fast
+	switching between two directly displayable pages.
+
+
+	The interface routines are on two different levels:
+
+		level 1 - screen management on pixel basis
+				  uses actual screen indices
+
+		level 2 - positioning & drawing 
+				  in abstract world coordinates
+
+	Description of calling sequences for Fortran and C
+	are given together with explanations below. Pascal
+	declarations may be found in the "graph.h" include
+	file in the distribution set.
+
+
+
+LEVEL 1 ROUTINES
+________________	
+
+All parameters not specified explicitly as arrays or reals
+are integers.
+All integer parameters are assumed to be "integer*2" (16 bits)
+in Fortran, "integer" in Pascal and "int" in C.
+
+screen address range:
+
+			0 <= ix <= 719	for Hercules card
+			0 <= iy <= 347
+
+			0 <= ix <= 319	for IBM color card
+			0 <= iy <= 199
+
+			0 <= ix <= 639	for IBM color card in mono mode
+			0 <= iy <= 199
+
+        (0,0) is top left pixel
+
+		(0,0)-----------> (ix,0)
+		  |
+		  |
+		  |
+		  V
+		(0,iy)
+
+
+Three separate libraries are supplied, each for a different
+kind of graphics screen:
+
+	HGCMSF		for Hercules
+	MGCMSF		for IBM card in full color mode
+	MGC64MSF	for IBM card in mono mode
+
+These libraries follow Microsoft Fortran and Pascal calling
+conventions.
+Optionally, each of these libraries can be supplied in four
+variants, following four Lattice C models (S, D, P, L).
+
+initialization/termination routines
+-----------------------------------
+
+---------------------------------------------->>  SCREEN
+
+Fortran:        | C:
+                |
+i=screen(dummy) | int  screen();
+                |
+
+	returns code identifying which library is being used
+
+		1	for Hercules
+		2	for IBM in full color 320*200
+		3	for IBM in monochrome 640*200
+		4	for IBM in monochrome 320*200
+
+
+---------------------------------------------->>  GRAPH
+
+call graph(i) | graph(i);
+
+	switches display to graphics mode
+	clears entire screen
+	involves a delay of approx. 3 secs  [ for Hercules only ]
+	for IBM color display, "i" sets either regular color mode,
+	or black&white mode, more suitable for use on monochrome
+	displays
+		i should be 1 for color mode 320*200
+
+
+---------------------------------------------->>  TEXT
+
+call text | text();
+
+	switches display to character mode
+	does not change current video buffer assignment
+	fills screen with blanks
+	delays for 3 secs  [ for Hercules only ]
+
+
+---------------------------------------------->>  CLS
+
+call cls | cls();
+
+	clears current video buffer in graphics mode,
+	without turning display off
+
+
+---------------------------------------------->>  HPAGE
+
+call hpage(nr, mode, cflag) | hpage(nr,mode,cflag);
+                            
+
+[Hercules II only]
+
+	controls access to both pages of Hercules-II;
+
+	"nr"	- page number ( 0 or 1)
+	"mode"	- 0 for text display,
+		      1 for graphics display,
+		     -1 for buffering only (display not affected)
+	"cflag" - 0 for preserving previous contents
+		    - 1 for clearing buffer contents
+
+	switching pages via "hpage" is done without delay if the mode
+	remains unchanged;
+	otherwise,  "call graph" is equivalent to "call hpage(0,1,1)"
+                "call text"  is equivalent to "call hpage(0,0,1)"
+
+	the typical animation loop may be done as follows:
+
+		call hpage(0,1,1)
+	c	draw initial picture
+		...
+		page=1
+	1	continue
+		call hpage(1-page,1,0)	; set display
+		call hpage(page,-1,1)	; set buffer 
+	c	draw modified picture
+		...
+		page=1-page
+		if (.not.finished) go to 1
+
+
+---------------------------------------------->>  VIDEO
+
+call video(array) | video(array);
+                  | char *array;
+
+	sets video buffer to "array", which should have
+	32K bytes for Hercules, 16K bytes for IBM card.
+	"video" preserves the previous contents of "array".
+	Subsequent calls to drawing subroutines
+	will not affect screen display, picture
+	created in this buffer may be transferred
+	to actual display via "getmap"-"putmap",
+	or some other form of saving & restoring.
+
+
+
+mode setting routines
+---------------------
+
+
+---------------------------------------------->>  COLOR
+
+call color(i) | color(i);
+
+	sets current color to i
+	for monochrome displays, 0 means black, non-0 - white
+	for color displays, 0 means background
+
+
+---------------------------------------------->>  STYLE
+
+call style(i) | style(i);
+
+	sets style of lines and fill shades to a combination
+	of current color and background color (for mono -
+	white and black, respectively) according to 5 predefined
+	patterns:
+
+		0	....
+		1	****
+		2	***.
+		3	**..
+		4	*.*.
+		5	*...
+
+	where   '*' means curent color,  '.' background color
+
+
+---------------------------------------------->>  PATERN
+
+call patern(iv,io) | pattern(iv,io);
+
+	sets style of lines and fill shades to an explicitly specified
+	combination of colors : "iv" for even scan lines, "io" for odd.
+	Color encoding is decimal, allowing 4 pixels.
+	Lines are drawn always according to "iv".
+
+	Examples:
+
+	call patern(1100,0011)
+		is equivalent to 
+	call color(1), call style(3)
+
+
+	call patern(1212,2121)
+		produces a shade that cannot be otherwise achieved
+		( a dotted line consisting of pixels in colors 1 and 2 )
+
+
+---------------------------------------------->>  BORDER
+
+call border(i) | border(i);
+
+[ IBM color mode only ]
+
+	sets actual background color to i  ( i = 0,1,...,15 )
+
+
+---------------------------------------------->>  PALLET
+
+call pallet(ip) | pallet(ip);
+
+[ IBM color mode only ]
+
+	changes current pallette to pallette ip ( 0 or 1 )
+	default pallette is 0
+
+
+---------------------------------------------->>  INTENS
+
+call intens(i) | intens(i);
+
+[ IBM color mode only ]
+
+	changes current intensity, 1 means more intensity, 0 less;
+	default intensity is 1
+
+
+positioning routines
+--------------------
+
+
+---------------------------------------------->>  MOVE
+
+call move(ix,iy) | move(ix,iy);
+
+	sets current position to (ix,iy)
+	picture remains unchanged
+
+
+---------------------------------------------->>  INXPOS
+                                                  INYPOS
+
+ix=inxpos(idummy) | int  inxpos();
+
+	returns current x screen coordinate
+
+
+iy=inypos(idummy) | int  inypos();
+
+	returns current y screen coordinate
+
+
+---------------------------------------------->>  PUSHXY
+                                                  POPXY
+
+call pushxy | pushxy();
+
+	pushes current position, color & mode
+	stack is kept internally, max depth is 16
+
+
+call popxy | popxy();
+
+	restores position, color & mode from internal stack
+
+
+---------------------------------------------->>  TRACK
+
+call track(ix,iy) | track(ix,iy);
+
+	displays a small (8*8) arrow-shaped cursor which can be
+	moved around with cursor keys; a single keystroke moves
+	it by 5 pixels, in shift mode step size is 1 pixel;
+	"home" key returns the cursor to the initial (ix,iy);
+	"end" removes cursor from screen, and returns - its
+	position can be read with "in?pos" above.
+
+
+
+pixel operations
+----------------
+
+---------------------------------------------->>  POINT
+
+call point(ix,iy) | point(ix,iy);
+
+	moves to pixel (ix,iy) and sets it to current color
+
+
+---------------------------------------------->>  INPIX
+
+ic=inpix(ix,iy) | int  inpix(ix,iy);
+
+	moves to pixel (ix,iy) and returns its color setting;
+	for Hercules and IBM monochrome mode 640*200 :
+		it will be 1 if pixel is on, 0 if it is off.
+
+
+
+line drawing
+------------
+
+---------------------------------------------->>  DRAW
+		
+call draw(ix,iy) | draw(ix,iy);
+
+	draws a line from current screen position to (ix,iy);
+	sets current position to (ix,iy);
+	line is drawn in current color, with both terminal pixels
+	always turned white ( non-background) for non-black
+	( non-background ) line color.
+	Bresenham algorithm is used.
+
+
+---------------------------------------------->>  CIRB
+
+call cirb(xi,yi,ri,alfa,beta,cbord,bcint,p,q)
+real alfa,beta
+
+[ not available in Lattice C ]
+
+	draws a circle (or ellipse, depending on aspect value),
+	optionally filling its interior; does not preserve position;
+	(xi,yi) - center coordinates
+	ri - radius in pixels (horizontally)
+	alfa, beta - starting & ending angles; if alfa=beta a full
+	circle is drawn; values should be given in radians;
+	cbord - border color
+	bcint - if .ne.0, interior is filled in current style&color
+	p,q - aspect ratio; if p/q=1, a perfect circle is drawn,
+	if p/q<1, the horizontal axis is longer, if p/q>1 - the vertical
+	axis is longer;
+
+
+
+bitmap operations
+-----------------
+
+---------------------------------------------->>  GETMAP
+
+call getmap(ix,iy,iarray) | getmap(ix,iy,iarray);
+                          | char *iarray;
+
+	saves rectangular area between current position as
+	top left corner and (ix,iy) as bottom right corner,
+	including border lines;
+	position remains unchanged.
+	"iarray" should have  4 + ( rows * ( 3 + cols div 8))
+	bytes.
+
+
+---------------------------------------------->>  PUTMAP
+
+call putmap(iarray) | putmap(iarray);
+                    | char *iarray;
+
+	sets rectangular area of screen pixels to that saved
+	by "getmap" in "iarray";
+	same size is restored, with top left corner in current
+	position;
+	position remains unchanged.
+
+
+---------------------------------------------->>  ORMAP
+
+call ormap(iarray) | ormap(iarray);
+                   | char *iarray;
+
+	same as putmap, but saved bitmap is or'ed into screen
+	rather than just set.
+
+
+---------------------------------------------->>  XORMAP
+
+call xormap(iarray) | xormap(iarray);
+                    | char *iarray;
+
+	same as putmap, but saved bitmap is xor'ed into screen
+	rather than just set.
+
+
+
+character i/o
+-------------
+
+---------------------------------------------->>  INKEY
+
+ik=inkey(idummy) | int  inkey();
+
+	returns next character from keyboard buffer;
+	0 is returned if buffer is empty;
+	special keys are returned as negative numbers;
+	ALT-NUM method may be used for entering character codes
+	above 127 (this makes entering special keys 128-132
+	impossible);
+	if a character is returned, it is also removed
+	from the buffer, so MS-DOS will not see it (CTRL-C!);
+	typeahead is allowed, echo is suppressed.
+
+
+---------------------------------------------->>  HASCII
+
+call hascii(ic) | hascii(ic);
+
+	'xor's the character in a 8*8 box with top left corner
+	in the current position;
+	moves current position by (8,0);
+	character code 0 sets complete box to black ( background ),
+	with no	change in position.
+	BIOS ROM font for IBM color card is used. If the font
+	table is not at F000:FA6E, the character will probably
+	be unrecognizable, and most certainly wrong.
+	For codes >127, table pointed to by interrupt vector 31
+	is used.
+
+
+---------------------------------------------->>  HFONT
+
+call hfont(iseg,ioffs) | hfont(iseg,ioffs);
+
+	sets 8*8 horizontal font table address to iseg:ioffs.
+
+
+---------------------------------------------->>  HFONT8
+
+call hfont8(iseg,ioffs) | hfont8(iseg,ioffs);
+
+	includes a copy of IBM ROM 8*8 font and returns address
+	suitable for passing to "hfont";
+	use of "hfont8" makes program larger but quarantees
+	BIOS ROM independence.
+
+
+
+line -oriented i/o
+-------------------
+
+---------------------------------------------->>  OUTHLINE
+
+call outhline(n,l) | outhline(n,l);
+                   | char *l;
+
+	call "hascii"  "n" times with subsequent bytes
+	from "l" array as arguments;
+	before each character is written, "hascii(0)" is
+	called.
+
+
+---------------------------------------------->>  INHLINE
+
+call inhline(n,l) | inhline(n,l);
+                  | int  *n;
+                  | char *l;
+
+	reads a line of at most "n" characters from
+	the keyboard, storing them in the "l" array;
+	characters are echoed at current position with "hascii" 
+	as they are typed in;
+	a blinking cursor prompts for the next character;
+	BACKSPACE works as expected, RETURN completes the line;
+	typing "n"-th character also completes the line;
+	"l" is blank filled up to "n" bytes;
+	on return "n" is the total number of characters read.
+
+			
+
+window - oriented i/o
+---------------------
+
+---------------------------------------------->>  MKWNDW
+
+call mkwndw(ix,iy,icols,ilines,iwndw,iwndwsize,iborder)
+
+ | mkwndw(ix,iy,icols,ilines,iwndw,iwndwsize,iborder);
+ | int  ix,iy, icols, ilines;
+ | int  iwndw[];
+ | int  iwndwsize, iborder;
+
+	makes a tty-like scrollable window for "ilines" lines 
+	of alphanumeric text of "icols" characters each;
+	top left corner of the window is located at (ix,iy);
+	if "iborder" is non-zero, the window will have a solid
+	border and a margin of 2 black pixels drawn around it;
+	"iwndw" should be an array large enough to "getmap"
+	complete window into it, leaving 20 bytes free, 
+	however, if "bury" and "expose" are not to be applied to
+	the window, 20 bytes total size is enough;
+	"iwndwsize" is size of "wndw" array, it is ignored now.
+
+	Window just defines scrolling size for subsequent
+	line-oriented i/o. Anything drawn across it will 
+	simply scroll. If you want to have overlapping
+	windows, all you need to implement that is here.
+				
+
+---------------------------------------------->>  BURY
+
+call bury(iwndw) | bury(iwndw);
+                 | int  iwndw[];
+
+	makes the window disappear from the screen;
+	the contents is saved away, so it may be "exposed" later;
+	"iwndw" should have appeared before in call to "mkwndw".
+	"bury" may be called only if the array supplied to "mkwndw"
+	is large enough.
+
+
+---------------------------------------------->>  EXPOSE
+
+call expose(iwndw,ix,iy) | expose(iwndw,ix,iy);
+                         | int  iwndw[];
+
+	makes the window reappear at (ix,iy) as its new top
+	left corner;
+	the window should have been "buried" before.
+
+
+---------------------------------------------->>  OUTWLINE
+
+call outwline(iwndw,n,l) | outwline(iwndw,n,l);
+                         | int  iwndw[];
+                         | char *l;
+
+	outputs "n" characters from "l" array at bottom line
+	in window "iwndw", scrolling it appropriately;
+	"n" may be larger than window line length - output
+	will take as many window lines as needed;
+
+
+---------------------------------------------->>  INWLINE
+
+call inwline(iwndw,n,l) | inwline(iwndw,n,l);
+                        | int  iwndw[];
+                        | int  *n;
+                        | char *l;
+
+	reads in a line of at most "n" characters from
+	window "iwndw", putting them into "l" array;
+	prompts at bottom of the window with ":";
+	"n" may be larger than window size - it will be done
+	in as many window lines as needed;
+	BACKSPACE can be used to erase characters on bottom
+	window line only;
+	when specifying length, one should remember that the first
+	column is used by the prompt;
+	on return "n" is the total number of read characters.
+
+
+secret operations
+-----------------
+
+---------------------------------------------->>  HFILL
+
+call hfill(ix) | hfill(ix);
+
+	fills current row (horizontally) from current position
+	(ix0,iy0) up to (ix,iy0) with bit pattern depending
+	on current color, style and/or pattern and position on
+	the screen in such a way that adjacent "hfill"ed" rows
+	will produce a shade simulating	color;
+	does not change current position;
+
+
+---------------------------------------------->>  VFILL
+
+call vfill(iy) | vfill(iy);
+
+	fills current column ( vertically ) from current
+	position (ix0,iy0) up to (ix0,iy) in a similiar way
+	that "hfill" does;
+	rectangular area "vfill'ed" is not distinguishable
+	on the screen from same shape "hfill'ed", except that
+	it will take much longer to fill.
+
+
+
+
+LEVEL 2 ROUTINES 
+_________________
+
+
+	These accept coordinates a real numbers and translate
+	them to actual pixel positions according to a previously
+	specified "window" definition;
+	
+
+abstract world window definition
+________________________________
+
+
+---------------------------------------------->>  SWINDOW
+
+call swindow(r,i,scale)  | swindow(r,i,scale);
+real r(4)                | float  r[4];
+integer*2 i(4),scale     | int  i[4],scale;
+
+	enables positioning & drawing in abstract world
+	coordinates ( cf. "rmove", "rdraw")
+
+	defines rectangular window
+
+			r(1) <= x <= r(2), 
+			r(3) <= y <= r(4)
+
+	in center of the rectangular area of the screen
+	with top left corner in position (i(1),i(3))
+	and right bottom corner in position (i(2),i(4));
+	if "scale" equals 0, the real proportions are not
+	preserved: the abstract window is simply mapped to fit
+	the entire area of the screen, otherwise the window
+	is adjusted to reflect the aspect ratio of the screen;
+	abstract coordinates are mapped to the screen in the
+	follwing way:
+
+	(r(1),r(4))
+	     ^
+	     |
+	     |
+	     |
+	(r(1),r(3))--------------------->(r(2),r(3))
+
+
+---------------------------------------------->>  RWINDOW
+
+call rwindow(r,scale)  | rwindow(r,scale);
+real r(4)              | float  r[4];
+integer*2 scale        | integer scale;
+
+	equivalent to "swindow", using the entire screen;
+	a margin of 1 pixel, however, is left on all sides
+	to circumvent rounding problems
+
+
+positioning
+___________
+
+
+---------------------------------------------->>  RMOVE
+
+call rmove(rx,ry) | rmove(rx,ry);
+real rx,ry        | float  rx,ry;
+
+	sets current abstract world position to (rx,ry)
+	(rounded to nearest pixel) within a window 
+	that should have been defined in a previous call
+	to "rwindow" or "swindow";
+	picture remains unchanged
+
+
+---------------------------------------------->>  RINXPOS
+
+x=rinxpos(dummy)
+real dummy
+
+	returns abstract "x" coordinate in latest window of the
+	current pixel position;
+	will bomb out if there was no previous call to "rwindow"
+	or "swindow";
+	in case of "swindow" returned value may be negative;
+
+---------------------------------------------->>  RINYPOS
+
+y=rinypos(dummy)
+real dummy
+
+	returns abstract "y" coordinate in latest window of the
+	current pixel position;
+	will bomb out if there was no previous call to "rwindow"
+	or "swindow";
+	in case of "swindow" returned value may be negative;
+
+
+drawing
+_______
+
+
+---------------------------------------------->>  RDRAW
+
+call rdraw(rx,ry) | rdraw(rx,ry);
+real rx,ry        | float  rx,ry;
+
+	draws a line in current color from current screen
+	position to position (rx,ry) in abstract world
+	coordinates ( using LEVEL 1 "draw" internally );
+	sets current position to (rx,ry) (rounded);
+	the window should have been defined before as for "rdraw".
+
+---------------------------------------------->>  RCIRB
+
+call rcirb(xr,yr,rr,alfa,beta,cbord,bcint,p,q)
+real alfa,beta
+
+[not available in Lattice C]
+
+	draws a circle (or ellipse), accepting center coordinates
+	and radius value in abstract coordinates,
+	optionally filling its interior; does not preserve position;
+	(xr,yr) - center coordinates
+	rr - radius (scaled horizontally)
+	alfa, beta - starting & ending angles; if alfa=beta a full
+	circle is drawn; values should be given in radians;
+	cbord - border color
+	bcint - if .ne.0 , interior is filled in current style&color
+	p,q - aspect ratio; if p/q=1, a perfect circle is drawn,
+	if p/q<1, the horizontal axis is longer, if p/q>1 - the vertical
+	axis is longer;
+
+
+
+OTHER USEFUL THINGS
+___________________
+
+	Program "hgcprint.com", when called, sets up the system to 
+	make hardcopy of HERCULES graphics image on a GEMINI STAR 10
+	dot matrix printer in the same way as MS-DOS GRAPHICS command
+	does for the color/graphics card.
+	To make the hardcopy, press SHIFT-PrtSc.
+	This will work only in graphics mode.
+
+	Note
+	Actually one cannot make hardcopy of IBM color graphics.
+
+
+A NOTE ON LINKING PASCAL PROGRAMS
+---------------------------------
+
+	When linking Pascal programs which call one of the following:
+
+		mkwndw	inhlin	outhlin	bury	window	cirb	rcirb
+		track	inwlin	outwlin	expose	rmove	rdraw
+
+	linker will complain about the missing library FORTRAN.LIB.
+	Just ignore this complaint (simply type CR).
+
+
+A NOTE ON LINKING C PROGRAMS
+----------------------------
+
+	When linking C programs using one of the following:
+
+		rwindow	swindow	rmove	rdraw	rcirb	cirb
+
+	keep in mind that the following global names
+	are used internally:
+
+		wir*	(e.g. wirmix, wirmiy, etc.)
+		pqasp*	(e.g. pqaspp, pqaspq, etc.)
+

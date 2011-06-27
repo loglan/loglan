@@ -1,0 +1,1025 @@
+C    Loglan82 Compiler&Interpreter
+C     Copyright (C) 1981-1993 Institute of Informatics, University of Warsaw
+C     Copyright (C)  1993, 1994 LITA, Pau
+C     
+C     This program is free software; you can redistribute it and/or modify
+C     it under the terms of the GNU General Public License as published by
+C     the Free Software Foundation; either version 2 of the License, or
+C     (at your option) any later version.
+C     
+C     This program is distributed in the hope that it will be useful,
+C     but WITHOUT ANY WARRANTY; without even the implied warranty of
+C     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+C     GNU General Public License for more details. File: LICENSE.GNU
+C  ===============================================================     
+
+c	files used by compiler :
+c
+c	unit	file description
+c	
+c	13	output sequential (F)	  listing (.LST)          (ML2,     )
+c	14	temporary direct  (C)     code after parser       (WAN1, ML2)
+c	15	output sequential (C)     L-code (.LCD)           (WAN1, ML2)
+c	16	temporary sequential (C)  listing                 (WAN1, ML2)
+c	17	input sequential (C)      source                  (WAN1, ML2)
+c	18	temporary sequential (C)  L-code                  (WAN1, AL11)
+c	19	temporary direct (C)      errors                  (WAN2, ML2)
+c       21      output sequential (C)     debugger                (WAN1, ML2)
+c
+      subroutine LOGLAN(parlen,parbuf)
+      integer parlen
+      character parbuf(1)
+      IMPLICIT INTEGER (A-Z)
+c  parlen - dlugosc linii z parametrami dla kompilatora
+c  parbuf - bufor zawierajacy parametry dla kompilatora
+C======================================================================C
+C								       C
+C			 LOGLAN L-COMPILER			       C
+C			 =================			       C
+C								       C
+C     AUTHORS:							       C
+C								       C
+C	       DANKA SZCZEPANSKA-WASERSZTRUM			       C
+C	       MAREK J. LAO					       C
+C	       ANDRZEJ I. LITWINIUK				       C
+C	       WOJTEK A. NYKOWSKI				       C
+C								       C
+C	       IIUW, WARSZAWA, 1982				       C
+C								       C
+C     PORTED TO SIEMENS 7760 BS2000 BY: 			       C
+C								       C
+C	       PAWEL K. GBURZYNSKI				       C
+C	       MANFRED KRAUSE					       C
+C	       ANDRZEJ I. LITWINIUK				       C
+C								       C
+C	       IIPMCAU, KIEL, MAY-JUNE 1984			       C
+C                                                                      C
+C     PORTED TO IBM PC BY                                              C
+C              Danuta Szczepanska                                      C
+C              Boleslaw Ciesielski                                     C
+C              Teresa Przytycka                                        C
+C                                                                      C
+C     PORTED TO VAX / VMS BY                                           C
+C              Danuta Szczepanska                                      C
+C              Andrzej Litwiniuk                                       C 
+C								       C
+C     PORTED TO XENIX SCO BY                                           C
+C              Pawel Susicki                                           C
+C								       C
+C     PORTED TO UNIX SCO BY                                            C
+C              Pawel Susicki                                           C
+C								       C
+C     PORTED TO SUN SPARC BY                                           C
+C              Pawel Susicki                                           C
+C								       C
+C======================================================================C
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BLANK/ C0M(4) , S, ADRES , K
+      common /mjlmsg/ierc,msg
+      character*4 msg
+C======================================================================C
+C    THE FOLLOWING FILE UNITS ARE USED: 			       C
+C								       C
+C	 1 - INTERACTIVE INPUT FROM THE TERMINAL		       C
+C	 2 - INTERACTIVE OUTPUT TO THE TERMINAL 		       C
+C	13 - LISTING OUTPUT					       C
+C	14 - WORKING FILE SCRATCH				       C
+C	15 - L-CODE OUTPUT					       C
+C	16 - PARTIAL LISTING FROM PARSER			       C
+C	17 - SOURCE INPUT TO THE COMPILER			       C
+C	18 - AUXILIARY SOURCE INPUT				       C
+C	19 - SCRATCH FILE INCLUDING INFO ABOUT COMPILATION ERRORS      C
+C======================================================================C
+cdsw	byte	  jfname
+	character jfname, param
+
+	common /par/ param(256),dl, pozopt
+c   param - line of program parameters
+c   dl - length of program parameters
+c   pozopt -  options position in param  
+    	
+      common /jf/jfname(72),jf
+
+      call ffputnl(0)
+      call ffputcs(0,' LOGLAN-82  UNIX Compiler, Version 2.1')
+      call ffputnl(0)
+      call ffputcs(0,' January 10, 1993')
+      call ffputnl(0)
+      call ffputcs(0,' (C)Copyright  Institute of Informatics,')
+      call ffputcs(0,' University of Warsaw')
+      call ffputcs(0,' (C)Copyleft   LITA Universite de Pau')
+      call ffputnl(0)
+
+      ierc = 0
+      msg = 'it0 '
+      do 10 jf=1,70
+10    jfname(jf) = ' '
+      do 15 i=1, parlen
+15    param(i)=parbuf(i)
+      dl=parlen
+      if(dl.ne.0) go to 100
+      pozopt = 0
+200   continue
+c  prompt       
+
+      call ffputcs(0,' File name: ')
+      call ffgets (0,param,70)
+
+      dl = 70
+c file name is in  param
+100   continue
+      do 20 pozopt=1,dl
+      if(param(pozopt).ne.' ') go to 30
+ 20   continue
+      go to 200
+ 30   jf = 0
+50    if(param(pozopt).eq.' '.or.param(pozopt).eq.',' .or.
+     * param(pozopt).eq.';') go to 300
+      if (jf.ge.70) go to 40
+      jf = jf+1
+      jfname(jf) = param(pozopt)
+ 40   pozopt = pozopt+1
+      if(pozopt .le. dl) go to 50
+ 300  if (jf.eq.0) go to 200
+ 500  continue
+      CALL DATA3
+      CALL DATA
+      CALL DATA2
+      CALL MESS
+      CALL WAN
+      END
+
+
+      SUBROUTINE DATA3
+      IMPLICIT INTEGER (A-Z)
+C
+C  INITIATES THE BLANK COMMON
+C  FIXES DIVISION OF IPMEM INTO COMPILER TABLES
+C
+C
+      LOGICAL  INSYS,  OWN
+      COMMON /BLANK/ COM(278),
+     X	      LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X	      NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X	      NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X	      LOCAL , OWN   , OBJECT,
+     x        IPMEM(5000)
+cdsw&bc     X	      IPMEM(50000)
+C
+C	      COM    - OBSZAR KOMUNIKACYJNY STRUMIENI
+C	      LMEM   - (=32000) ROZMIAR CALEJ PAMIECI GLOWNEJ
+C	      LPMEM  - PODZIAL PAMIECI NA CZESCI  IPMEM  I  ISMEM
+C	      IRECN  - INDEKS SZCZYTU STOSU STALYCH REAL
+C	      ISFIN  - INDEKS SZCZYTU SLOWNIKA PROTOTYPOW
+C
+C	      LPMSYS - INDEKS PIERWSZEGO SLOWA W IPMEM OBSZARU NIEPRZEZ-
+C		       NACZONEGO NA PROTOTYPY SYSTEMOWE
+C	      LPML   - INDEKS PIERWSZEGO SLOWA OBSZARU WOLNEGO W IPMEM
+C	      LPMF   - INDEKS OSTATNIEGO SLOWA WOLNEGO OBSZARU W IPMEM
+C
+C     IDENTYFIKATORY PROTOTYPOW SYSTEMOWYCH
+C	      NRINT  - IDENTYFIKATOR PROTOTYPU	INTEGER
+C	      NRRE   -				REAL
+C	      NRBOOL -				BOOLEAN
+C	      NRCHR  -				CHARACTER
+C	      NRCOR  -				COROUTINE
+C	      NRPROC -				PROCESS
+C	      NRTEXT -				STRING (TEXT)
+C	      NRUNIV - IDENTYFIKATOR PROTOTYPU UNIWERSALNEGO
+C	      NATTR  - IDENTYFIKATOR PSEUDO-ATRYBUTU (Z NUMEREM -1)
+C	      NRNONE - IDENTYFIKATOR PROTOTYPU TYPU NONE (UNIWERSALNY
+C		       REFERENCYJNY)
+C	      NBLSYS - IDENTYFIKATOR BLOKU SYSTEMOWEGO
+C	      NBLUS  -		     BLOKU GLOWNEGO UZYTKOWNIKA
+C
+C	      INSYS  - FLAGA SPOSOBU REZERWACJI (PRZEZ	MGETM) PAMIECI
+C		       W IPMEM - .TRUE. JESLI REZERWACJA W CZESCI SYSTE-
+C		       MOWEJ
+C	      LOCAL  - FLAGA DOSTEPU DO OBIEKTOW - 2 JESLI OBIEKT
+C	  BYL LOKALNY, 1 - GDY Z SL, 0 - GDY Z BLOKU GLOWNEGO
+C	      OWN    - FLAGA DOSTEPU DO OBIEKTOW - .TRUE. JESLI OBIEKT NIE
+C		       POCHODZI Z PREFIKSOW (TYLKO Z WLASCIWEGO OBIEKTU)
+C	      OBJECT - PROTOTYP OBIEKTU, Z KTOREGO POCHODZIL OSTATNIO
+C		      SZUKANY IDENTYFIKATOR (OBIEKT POCHODZACY Z CIAGU SL)
+C
+C
+C      IN THIS PLACE THE SIZE OF IPMEM MAY BE REDECLARED; THEN THE
+C      VARIABLE LMEM (BELOW) SHOULD BE SET TO THE LENGTH OF IPMEM.
+C
+C
+C  IPMEM - MAIN MEMORY AREA OF THE COMPILER
+C  LPML  - ADDRESS OF THE FIRST -
+C  LPMF  - ADDRESS OF THE LAST FREE WORD IN IPMEM
+C  ISFIN - TOP OF THE DICTIONARY OF PROTOTYPES
+C  LPMEM - DIVISION POINT OF IPMEM
+C  LMEM  - LENGTH OF IPMEM
+C
+      COM(1)=0
+
+      lmem = LMEMSIZE
+      lpmem = LPMEMSIZE+1
+      
+      IF (LPMEM.GT.4550) GO TO 1
+C --- SIZE OF IPMEM TOO SMALL
+      call ffputcs(0,' Fatal Error:  Memory overflow ')
+      call ffputnl(0)
+      call ffexit
+c--
+1     DO 10 I=3738,LMEM
+10    IPMEM(I)=0
+
+C --- 2 BELOW STANDS FOR THE SIZE OF REAL NUMBER EXPRESSED IN THE
+C --- NUMBER OF INTEGERS WHICH COVERS THIS SIZE.
+cvax  the size of real numbers on vax is 4 bytes ( = the size of integer)
+cvax  LPML=LPMEM+2
+cdsw  lpml - first free place in real constants
+cdsw  in the future -  (lpmem+1) = 0.0, (lpmem+2) = 1.0
+      lpml = lpmem + WORDS_IN_REAL
+
+C
+C  THE FIRST REAL CONSTANT IS 0.0
+C
+      LPMF=LMEM
+      ISFIN=LPMEM-1
+      RETURN
+      END
+
+      SUBROUTINE DATA
+      IMPLICIT INTEGER (A-Z)
+cdsw  INTEGER DATAHEX1,DATAHEX2,DATAHEX3
+cdsw  DATA    DATAHEX1,DATAHEX2,DATAHEX3 /Z802F,Z0000,ZFFFF/
+
+C
+C   INITIATES THE BLANK COMMON
+C
+      DIMENSION X(169),Y(169)
+      COMMON /BLANK/
+     $	 C0M(4),
+     O	 S,	   ADRES,    K,        SCOMA,	 SDOT,	   SEMICOL,
+     1	 SCOLON,   SLEFT,    SRIGHT,   SBECOME,  STAR,	   SRELAT,
+     2	 SEOF,	   SIDENT,   SCONST,   SAND,	 SARRAY,   SARROF,
+     3	 SATTACH,  SBEGIN,   SBLOCK,   SBOOL,	 SCALL,    SCASE,
+     4	 SCLASS,   SCLOSE,   SCONS,    SCOPY,	 SCOROUT,  SDETACH,
+     5	 SDIM,	   SDO,      SDOWN,    SELSE,	 SEND,	   SESAC,
+     6	 SEXIT,    SEXTERN,  SFI,      SFOR,	 SFUNCT,   SIF,
+     7	 SINNER,   SINPUT,   SINT,     SKILL,	 SLOCK,    SNEW,
+     8	 SNONE,    SNOT,     SOD,      SOR,	 SORIF,    SOTHER,
+     9	 SOUTPUT,  SPREF,    SPRCD,    SQUA,	 SREAD,    SRESUME,
+     O	 SRETURN,  STEP,     STOP,     STAKEN,	 STHEN,    STHIS,
+     A	 STO,	   STYPE,    SUNIT,    SVAR,	 SVIRTUAL, SWAIT,
+     B	 SWHEN,    SWHILE,   SWRIT,    SWRITLN,  STRUE,    SALL,
+     C	 WAND,	   WARRAY,   WASSIGN,  WASSCON,  WATTACH,  WBLOCK,
+     D	 WCALL,    WCASE,    WCASEL,   WCOMA,	 WCNSTB,   WCNSTC,
+     E	 WCNSTI,   WCNSTN,   WCNSTR,   WCNST,	 WCOPY,    WDETACH,
+     F	 WDOT,	   WDOWNTO,  WEOF,     WESAC,	 WFIN,	   WFIRST,
+     G	 WFOREND,  WFORVAR,  WFROM,    WIDENT,	 WIFFALS,  WIFTRUE
+
+      common /BLANK/
+     H	 WINNER,   WINSTREND,WJUMP,    WKILL,	 WLABEL,   WLEFT,
+     I	 WLOCK,    WLOW,     WLSE,     WNEW,	 WNEWARRAY,WNOT,
+     J	 WOPERAT,  WOPT,     WOR,      WOTHER,	 WPREF,    WPRIM,
+     K	 WQUA,	   WREAD,    WRELAT,   WRESUME,  WRETURN,  WRIGHT,
+     L	 WSTART,   WSTEP,    WSTOP,    WTHIS,	 WTO,	   WAIT,
+     M	 WRITE,    WRITELN,  WBOUND,   UNICAL,
+     N	 COM(132),
+     O	 LMEM,	   LPMEM,    IRECN,    ISFIN,	 LPMSYS,   LPML,
+     P	 LPMF,	   NRINT,    NRRE,     NRBOOL,	 NRCHAR,   NRCOR,
+     Q	 NRPROC,   NRTEXT,   NRUNIV,   NATTR,	 NRNONE,   NBLSYS,
+     R	 NBLUS,    NEMPTY,   INSYS,    LOCAL,	 OWN,	   OBJECT,
+     S	 HASH(8000), M,        NAME(10), NLAST,    NL,
+     T	 KEYS(200),
+     U	 TRANS1(13,13),      TRANS2(13,13),	 B0,	   B(70),
+     V	 SKOK0,    SKOK(70), KK,       MM,	 STAN,	   STAN1,
+     W	 AUX,	   K1,	     SY,       SY1,	 NU, JK1,  EXP,
+     X	 SIGN,	   INTPART,  FRAC,     OKEY,	 FRACT,JK2,NB,
+     Y	 TL,	   BYTE,     TEXT(20),
+     Z	 TOP,	   IN,	     NEXT,     STACK(500)
+
+      common /BLANK/
+     *	 RESZTA(3652)
+      REAL   FRACT,NU
+      EQUIVALENCE (TRANS1(1,1),X(1))
+      EQUIVALENCE (TRANS2(1,1),Y(1))
+      LOGICAL OKEY
+C     DATA M,HASH,NAME,NLAST,NL /1009,3000*0,10*0,3001,10/
+c      #8027 zmienione na #002F - w zapisie uzupelnieniowym
+      dathx1 = X'002F'
+      dathx2 = X'0000'
+c     #ffff zmienione na -#0001
+      dathx3 = -X'0001'
+      M=1009
+cdsw  NLAST=3001
+      nlast =8001 
+      NL=10
+cdsw  DO 2 I=1,3000
+cdsw2 HASH(I)=0
+      DO 3 I=1,NL
+3     NAME(I)=0
+C     DATA TRANS2 /1,3,5,8,3,10,10,16,18,1,10,10,20,2,1,1,8,1,14,14,16,
+C    ,18,
+C    ,1,14,1,20,1,3,1,9,11,14,14,16,18,1,14,14,20,1,3,6,8,12,14,14,16,
+C    ,18,1,14,14,20,1,4,7,8,4,15,15,16,18,1,14,14,20,1,3,1,8,13,14,14,16
+C    ,,18,1,14,14,20,1,4,7,8,4,15,15,16,18,1,14,14,20,1,3,7,8,3,14,14,16
+C    ,,18,1,14,14,20,1,3,6,10,3,14,14,16,18,1,14,14,20,1,3,1,8,3,14,14,
+C    ,16,
+C    ,18,1,14,14,20,7*1,17,14*1,19,15*1,21/
+C     DATA TRANS1 /1,1,9,5*1,16,17,1,1,1,2,4,4,2,4,2,2,2,16,17,2,4,2,1,5
+C    ,,10,1,1,5,5,5,16,17,5,5,5,1,7,11,7,1,7,7,7,16,17,7,7,7,1,5,12,7,5,
+C    ,15,1,7,16,17,7,7,7,1,6,13,7,1,6,6,6,16,17,6,6,6,1,6,12,7,6,15,1,7,
+C    ,16,17,7,7,7,1,7,12,7,7,7,7,7,16,17,7,7,7,1,8,11,1,8,8,8,8,16,17,8,
+C    ,8,8,1,6,14,6,6,6,6,6,16,17,6,6,6,7*3,1,3,3,3,3,3,8*1,17,1,1,1,1,
+C    ,13*18/
+C     DATA B0,B/10*2,4*1,4,21*1,0,0,3,6,5,10,10,7,12,10,11,8*10,9,3*10,
+C    ,8,11*10/
+C     DATA SKOK0,SKOK /47*6,1,2,3,4,4,5,18*6/
+C ---
+cdsw  C0M(2)=DATAHEX1
+cdsw  C0M(3)=DATAHEX2
+cdsw  C0M(4)=DATAHEX3
+      c0m(2)=dathx1
+      c0m(3)=dathx2
+      c0m(4)=dathx3
+      CALL OPTDEF
+C ---
+      SKOK0=6
+      DO 4 I=1,70
+4     SKOK(I)=6
+      SKOK(47)=1
+      SKOK(48)=2
+      SKOK(49)=3
+      SKOK(50)=4
+      SKOK(51)=4
+      SKOK(52)=5
+      SIDENT=1
+      DO 5 I=1,200
+5     KEYS(I)=0
+C     DATA S,ADRES,STAN,K,SY,AUX,EXP,SIGN,INTPART,FRAC /10*0/
+      S=0
+      ADRES=0
+      STAN=0
+      K=0
+      SY=0
+      AUX=0
+      EXP=0
+      SIGN=0
+      INTPART=0
+      FRAC=0
+C     DATA OKEY,NU /.FALSE.,0.0/
+      OKEY=.FALSE.
+      NU=0.0
+      SCONST=1000
+      SEOF=70
+      SAND=67
+      SARRAY=18
+      SARROF=81
+      SATTACH=11
+      SBEGIN=83
+      SBLOCK=22
+      SBOOL=85
+      SCALL=9
+      SCASE=16
+      SCHAR=71
+      SCLASS=86
+      SCLOSE=87
+      SCONS=88
+      SCOPY=69
+      SCOROUT=78
+      SDETACH=5
+      SDIM=89
+      SDO=14
+      SDOWN=90
+      SELSE=62
+      SEND=80
+      SESAC=91
+      SEXIT=15
+      SEXTERN=92
+      SFI=63
+      SFOR=17
+      SFUNCT=93
+      SIF=2
+      SINNER=6
+      SINPUT=95
+      SINT=64
+      SKILL=10
+      SLOCK=7
+      SNEW=24
+      SNONE=1002
+      SNOT=66
+      SOD=65
+      SOR=68
+      SORIF=97
+      SOTHER=98
+      SOUTPUT=99
+      SPREF=23
+      SPRCD=101
+      SQUA=76
+      SREAD=8
+      SRESUME=12
+      SRETURN=4
+      STEP=102
+      STOP=13
+      STAKEN=103
+      STHEN=61
+      STHIS=74
+      STO=104
+      STRUE=1001
+      STYPE=105
+      SUNIT=77
+      SVAR=106
+      SVIRTUAL=107
+      SWAIT=21
+      SWHEN=109
+      SWHILE=3
+      SWRIT=19
+      SWRITLN=20
+      SCOMA=42
+      SDOT=38
+      SEMICOL=45
+      SCOLON=47
+      SLEFT=52
+      SRIGHT=53
+      SBECOME=54
+      STAR=50
+      SRELAT=51
+C     DATA BYTE,TL,NB,TEXT /64,20,2,20*0/
+      BYTE=64
+      TL=132
+      NB=2
+CBC   TEXT(1)=1
+      text(1)=2
+      
+      B0=2
+      DO 7 I=1,9
+7     B(I)=2
+      DO 8 I=10,35
+8     B(I)=1
+      B(14)=4
+      B(36)=0
+      B(37)=0
+      B(38)=3
+      B(39)=6
+      B(40)=5
+      B(41)=10
+      B(42)=10
+      B(43)=7
+      B(44)=12
+      B(45)=10
+      B(46)=11
+      DO 9 I=47,54
+9     B(I)=10
+      B(55)=9
+      B(56)=10
+      B(57)=10
+      B(58)=10
+      B(59)=8
+      DO 10 I=60,70
+10    B(I)=10
+      CALL DAATA
+      RETURN
+      END
+
+      SUBROUTINE DAATA
+      IMPLICIT INTEGER (A-Z)
+      DIMENSION X(169),Y(169)
+      COMMON /BLANK/
+     $	 C0M(4),
+     O	 S,	   ADRES,    K,        SCOMA,	 SDOT,	   SEMICOL,
+     1	 SCOLON,   SLEFT,    SRIGHT,   SBECOME,  STAR,	   SRELAT,
+     2	 SEOF,	   SIDENT,   SCONST,   SAND,	 SARRAY,   SARROF,
+     3	 SATTACH,  SBEGIN,   SBLOCK,   SBOOL,	 SCALL,    SCASE,
+     4	 SCLASS,   SCLOSE,   SCONS,    SCOPY,	 SCOROUT,  SDETACH,
+     5	 SDIM,	   SDO,      SDOWN,    SELSE,	 SEND,	   SESAC,
+     6	 SEXIT,    SEXTERN,  SFI,      SFOR,	 SFUNCT,   SIF,
+     7	 SINNER,   SINPUT,   SINT,     SKILL,	 SLOCK,    SNEW,
+     8	 SNONE,    SNOT,     SOD,      SOR,	 SORIF,    SOTHER,
+     9	 SOUTPUT,  SPREF,    SPRCD,    SQUA,	 SREAD,    SRESUME,
+     O	 SRETURN,  STEP,     STOP,     STAKEN,	 STHEN,    STHIS,
+     A	 STO,	   STYPE,    SUNIT,    SVAR,	 SVIRTUAL, SWAIT,
+     B	 SWHEN,    SWHILE,   SWRIT,    SWRITLN,  STRUE,    SALL,
+     C	 WAND,	   WARRAY,   WASSIGN,  WASSCON,  WATTACH,  WBLOCK,
+     D	 WCALL,    WCASE,    WCASEL,   WCOMA,	 WCNSTB,   WCNSTC,
+     E	 WCNSTI,   WCNSTN,   WCNSTR,   WCNST,	 WCOPY,    WDETACH,
+     F	 WDOT,	   WDOWNTO,  WEOF,     WESAC,	 WFIN,	   WFIRST,
+     G	 WFOREND,  WFORVAR,  WFROM,    WIDENT,	 WIFFALS,  WIFTRUE
+
+      common /BLANK/
+     H	 WINNER,   WINSTREND,WJUMP,    WKILL,	 WLABEL,   WLEFT,
+     I	 WLOCK,    WLOW,     WLSE,     WNEW,	 WNEWARRAY,WNOT,
+     J	 WOPERAT,  WOPT,     WOR,      WOTHER,	 WPREF,    WPRIM,
+     K	 WQUA,	   WREAD,    WRELAT,   WRESUME,  WRETURN,  WRIGHT,
+     L	 WSTART,   WSTEP,    WSTOP,    WTHIS,	 WTO,	   WAIT,
+     M	 WRITE,    WRITELN,  WBOUND,   UNICAL,
+     N	 COM(132),
+     O	 LMEM,	   LPMEM,    IRECN,    ISFIN,	 LPMSYS,   LPML,
+     P	 LPMF,	   NRINT,    NRRE,     NRBOOL,	 NRCHAR,   NRCOR,
+     Q	 NRPROC,   NRTEXT,   NRUNIV,   NATTR,	 NRNONE,   NBLSYS,
+     R	 NBLUS,    NEMPTY,   INSYS,    LOCAL,	 OWN,	   OBJECT,
+     S	 HASH(8000), M,        NAME(10), NLAST,    NL,
+     T	 KEYS(200),
+     U	 TRANS1(13,13),      TRANS2(13,13),	 B0,	   B(70),
+     V	 SKOK0,    SKOK(70), KK,       MM,	 STAN,	   STAN1,
+     W	 AUX,	   K1,	     SY,       SY1,	 NU, JK1,  EXP,
+     X	 SIGN,	   INTPART,  FRAC,     OKEY,	 FRACT,JK2,NB,
+     Y	 TL,	   BYTE,     TEXT(20),
+     Z	 TOP,	   IN,	     NEXT,     STACK(500)
+
+      common /BLANK/
+     *	 RESZTA(3652)
+      REAL   FRACT,NU
+      EQUIVALENCE(TRANS1(1,1),X(1))
+      EQUIVALENCE(TRANS2(1,1),Y(1))
+      X(  1)=1
+      X(  2)=1
+      X(3)=9
+      X(4)=1
+      X(5)=1
+      X(6)=1
+      X(7)=1
+      X(8)=1
+      X(9)=16
+      X(10)=17
+      X(11)=1
+      X(12)=1
+      X(13)=1
+      X(14)=2
+      X(15)=4
+      X(16)=4
+      X(17)=2
+      X(18)=4
+      X(19)=2
+      X(20)=2
+      X(21)=2
+      X(22)=16
+      X(23)=17
+      X(24)=2
+      X(25)=4
+      X(26)=2
+      X(27)=1
+      X(28)=5
+      X(29)=10
+      X(30)=1
+      X(31)=1
+      X(32)=5
+      X(33)=5
+      X(34)=5
+      X(35)=16
+      X(36)=17
+      X(37)=5
+      X(38)=5
+      X(39)=5
+      X(40)=1
+      X(41)=7
+      X(42)=11
+      X(43)=7
+      X(44)=1
+      X(45)=7
+      X(46)=7
+      X(47)=7
+      X(48)=16
+      X(49)=17
+      X(50)=7
+      X(51)=7
+      X(52)=7
+      X(53)=1
+      X(54)=5
+      X(55)=12
+      X(56)=7
+      X(57)=5
+      X(58)=15
+      X(59)=1
+      X(60)=7
+      X(61)=16
+      X(62)=17
+      X(63)=7
+      X(64)=7
+      X(65)=7
+      X(66)=1
+      X(67)=6
+      X(68)=13
+      X(69)=7
+      X(70)=1
+      X(71)=6
+      X(72)=6
+      X(73)=6
+      X(74)=16
+      X(75)=17
+      X(76)=6
+      X(77)=6
+      X(78)=6
+      X(79)=1
+      X(80)=6
+      X(81)=12
+      X(82)=7
+      X(83)=6
+      X(84)=15
+      X(85)=1
+      X(86)=7
+      X(87)=16
+      X(88)=17
+      X(89)=7
+      X(90)=7
+      X(91)=7
+      X(92)=1
+      X(93)=7
+      X(94)=12
+      X(95)=7
+      X(96)=7
+      X(97)=7
+      X(98)=7
+      X(99)=7
+      X(100)=16
+      X(101)=17
+      X(102)=7
+      X(103)=7
+      X(104)=7
+      X(105)=1
+      X(106)=8
+      X(107)=11
+      X(108)=1
+      X(109)=8
+      X(110)=8
+      X(111)=8
+      X(112)=8
+      X(113)=16
+      X(114)=17
+      X(115)=8
+      X(116)=8
+      X(117)=8
+      X(118)=1
+      X(119)=6
+      X(120)=14
+      X(121)=6
+      X(122)=6
+      X(123)=6
+      X(124)=6
+      X(125)=6
+      X(126)=16
+      X(127)=17
+      X(128)=6
+      X(129)=6
+      X(130)=6
+      DO 13 I=131,143
+13    X(I)=3
+      X(138)=1
+      DO 14 I=144,156
+14    X(I)=1
+      X(152)=17
+      DO 15 I=157,169
+15    X(I)=18
+      Y(1)=1
+      Y(2)=3
+      Y(3)=5
+      Y(4)=8
+      Y(5)=3
+      Y(6)=10
+      Y(7)=10
+      Y(8)=16
+      Y(9)=18
+      Y(10)=1
+      Y(11)=10
+      Y(12)=10
+      Y(13)=20
+      Y(14)=2
+      Y(15)=1
+      Y(16)=1
+      Y(17)=8
+      Y(18)=1
+      Y(19)=14
+      Y(20)=14
+      Y(21)=16
+      Y(22)=18
+      Y(23)=1
+      Y(24)=14
+      Y(25)=1
+      Y(26)=20
+      Y(27)=1
+      Y(28)=3
+      Y(29)=1
+      Y(30)=9
+      Y(31)=11
+      Y(32)=14
+      Y(33)=14
+      Y(34)=16
+      Y(35)=18
+      Y(36)=1
+      Y(37)=14
+      Y(38)=14
+      Y(39)=20
+      Y(40)=1
+      Y(41)=3
+      Y(42)=6
+      Y(43)=8
+      Y(44)=12
+      Y(45)=14
+      Y(46)=14
+      Y(47)=16
+      Y(48)=18
+      Y(49)=1
+      Y(50)=14
+      Y(51)=14
+      Y(52)=20
+      Y(53)=1
+      Y(54)=4
+      Y(55)=7
+      Y(56)=8
+      Y(57)=4
+      Y(58)=15
+      Y(59)=15
+      Y(60)=16
+      Y(61)=18
+      Y(62)=1
+      Y(63)=14
+      Y(64)=14
+      Y(65)=20
+      Y(66)=1
+      Y(67)=3
+      Y(68)=1
+      Y(69)=8
+      Y(70)=13
+      Y(71)=14
+      Y(72)=14
+      Y(73)=16
+      Y(74)=18
+      Y(75)=1
+      Y(76)=14
+      Y(77)=14
+      Y(78)=20
+      Y(79)=1
+      Y(80)=4
+      Y(81)=7
+      Y(82)=8
+      Y(83)=4
+      Y(84)=15
+      Y(85)=15
+      Y(86)=16
+      Y(87)=18
+      Y(88)=1
+      Y(89)=14
+      Y(90)=14
+      Y(91)=20
+      Y(92)=1
+      Y(93)=3
+      Y(94)=7
+      Y(95)=8
+      Y(96)=3
+      Y(97)=14
+      Y(98)=14
+      Y(99)=16
+      Y(100)=18
+      Y(101)=1
+      Y(102)=14
+      Y(103)=14
+      Y(104)=20
+      Y(105)=1
+      Y(106)=3
+      Y(107)=6
+      Y(108)=10
+      Y(109)=3
+      Y(110)=14
+      Y(111)=14
+      Y(112)=16
+      Y(113)=18
+      Y(114)=1
+      Y(115)=14
+      Y(116)=14
+      Y(117)=20
+      Y(118)=1
+      Y(119)=3
+      Y(120)=1
+      Y(121)=8
+      Y(122)=3
+      Y(123)=14
+      Y(124)=14
+      Y(125)=16
+      Y(126)=18
+      Y(127)=1
+      Y(128)=14
+      Y(129)=14
+      Y(130)=20
+      DO 50 I=131,168
+50    Y(I)=1
+      Y(138)=17
+      Y(153)=19
+      Y(169)=21
+      RETURN
+      END
+
+      SUBROUTINE OPTDEF
+      IMPLICIT INTEGER (A-Z)
+C --- READS INPUT PARAMETERS; APPROPRIATELY MODIFIES OPTION WORD
+      COMMON /BLANK/
+     $	 C0M(4),
+     O	 S,	   ADRES,    K,        SCOMA,	 SDOT,	   SEMICOL,
+     1	 SCOLON,   SLEFT,    SRIGHT,   SBECOME,  STAR,	   SRELAT,
+     2	 SEOF,	   SIDENT,   SCONST,   SAND,	 SARRAY,   SARROF,
+     3	 SATTACH,  SBEGIN,   SBLOCK,   SBOOL,	 SCALL,    SCASE,
+     4	 SCLASS,   SCLOSE,   SCONS,    SCOPY,	 SCOROUT,  SDETACH,
+     5	 SDIM,	   SDO,      SDOWN,    SELSE,	 SEND,	   SESAC,
+     6	 SEXIT,    SEXTERN,  SFI,      SFOR,	 SFUNCT,   SIF,
+     7	 SINNER,   SINPUT,   SINT,     SKILL,	 SLOCK,    SNEW,
+     8	 SNONE,    SNOT,     SOD,      SOR,	 SORIF,    SOTHER,
+     9	 SOUTPUT,  SPREF,    SPRCD,    SQUA,	 SREAD,    SRESUME,
+     O	 SRETURN,  STEP,     STOP,     STAKEN,	 STHEN,    STHIS,
+     A	 STO,	   STYPE,    SUNIT,    SVAR,	 SVIRTUAL, SWAIT,
+     B	 SWHEN,    SWHILE,   SWRIT,    SWRITLN,  STRUE,    SALL,
+     C	 WAND,	   WARRAY,   WASSIGN,  WASSCON,  WATTACH,  WBLOCK,
+     D	 WCALL,    WCASE,    WCASEL,   WCOMA,	 WCNSTB,   WCNSTC,
+     E	 WCNSTI,   WCNSTN,   WCNSTR,   WCNST,	 WCOPY,    WDETACH,
+     F	 WDOT,	   WDOWNTO,  WEOF,     WESAC,	 WFIN,	   WFIRST,
+     G	 WFOREND,  WFORVAR,  WFROM,    WIDENT,	 WIFFALS,  WIFTRUE
+
+       common /BLANK/
+     H	 WINNER,   WINSTREND,WJUMP,    WKILL,	 WLABEL,   WLEFT,
+     I	 WLOCK,    WLOW,     WLSE,     WNEW,	 WNEWARRAY,WNOT,
+     J	 WOPERAT,  WOPT,     WOR,      WOTHER,	 WPREF,    WPRIM,
+     K	 WQUA,	   WREAD,    WRELAT,   WRESUME,  WRETURN,  WRIGHT,
+     L	 WSTART,   WSTEP,    WSTOP,    WTHIS,	 WTO,	   WAIT,
+     M	 WRITE,    WRITELN,  WBOUND,   UNICAL,
+     N	 COM(132),
+     O	 LMEM,	   LPMEM,    IRECN,    ISFIN,	 LPMSYS,   LPML,
+     P	 LPMF,	   NRINT,    NRRE,     NRBOOL,	 NRCHAR,   NRCOR,
+     Q	 NRPROC,   NRTEXT,   NRUNIV,   NATTR,	 NRNONE,   NBLSYS,
+     R	 NBLUS,    NEMPTY,   INSYS,    LOCAL,	 OWN,	   OBJECT,
+     S	 HASH(8000),  M,    NAME(10), NLAST,    NL,
+     T	 KEYS(200),
+     U	 TRANS1(13,13),      TRANS2(13,13),	 B0,	   B(70),
+     V	 SKOK0,    SKOK(70), KK,       MM,	 STAN,	   STAN1,
+     W	 AUX,	   K1,	     SY,       SY1,	 NU,	   EXP,
+     X	 SIGN,	   INTPART,  FRAC,     OKEY,	 FRACT,    NB,
+     Y	 TL,	   BYTE,     TEXT(20),
+     Z	 TOP,	   IN,	     NEXT,     STACK(500)
+
+      common /BLANK/
+     *	 RESZTA(3652)
+
+       character param
+	common /par/ param(256),dl, pozopt
+c   param - line of program parameters
+c   dl - length of program parameters
+c   pozopt -  options position in param  
+C
+C
+      ext = 0
+      if(pozopt .gt.dl .or. dl .eq. 0) go to 1000
+  80  k = pozopt    
+      do 101 pozopt = k,dl
+      if(param(pozopt).ne.' ') go to 102
+101   continue
+      go to 1000
+102   if ( ext .eq. 1) go to 105
+      ext = 1 
+      if(param(pozopt).eq.';') go to 9999
+      if(param(pozopt) .ne.',') go to 105
+      pozopt = pozopt+1
+      go to 80
+105   i = 0
+      do 103 k = pozopt, dl
+      if(i.ge.70) go to 107
+      i = i+1
+ 103  skok(i) = ichar(param(k))
+ 107  i = i+1
+      do 112 k = i,70
+ 112  skok(k) = 0     
+      go to 2000
+1000  continue
+                             
+cvax ------added
+cps      write(*,1)
+cps1     format (
+cps     * ' Specify compilation options : (default = D-S-L-O+T+M+I+)'$)
+
+cps 3    do 111 k=1,70
+cps111   skok(k) = 0
+cps      read (*,2) skok
+cps2     format(70a1)
+ 2000 continue
+      K=1
+C
+10     znak = iand(X'ff', skok(k))
+      K=K+1
+      IF (ZNAK.EQ.ICHAR(' ')) GO TO 10
+      IF (ZNAK.EQ.ICHAR(',')) GO TO 10
+      IF (ZNAK.EQ.0) GOTO 9999
+C
+20    sign = iand(X'ff', skok(k))
+      K=K+1
+      IF (SIGN.EQ.ICHAR(' ')) GOTO 20
+      IF (SIGN.EQ.ICHAR('+')) GOTO 30
+      IF (SIGN.EQ.ICHAR('-')) GOTO 30
+C --- BAD OPTION
+29    call ffputcs(0,' Bad option - ignored')
+      call ffputnl(0)
+      go to 9999
+30    IF (ZNAK.GT.ICHAR('Z')) ZNAK = ZNAK-32
+C     IF (ZNAK.EQ.ICHAR('C')) GOTO 670
+      IF (ZNAK.EQ.ICHAR('D')) GOTO 680
+C     IF (ZNAK.EQ.ICHAR('F')) GOTO 700
+cdsw  IF (ZNAK.EQ.ICHAR('I')) GOTO 730
+      IF (ZNAK.EQ.ICHAR('L')) GOTO 760
+cdsw  IF (ZNAK.EQ.ICHAR('M')) GOTO 770
+      IF (ZNAK.EQ.ICHAR('O')) GOTO 790
+C --- IF (ZNAK.EQ.ICHAR('P')) GOTO 800
+cdeb
+      IF (ZNAK.EQ.ICHAR('S')) GOTO 830
+cdeb
+      IF (ZNAK.EQ.ICHAR('T')) GOTO 840
+      if (znak.eq.ichar('H')) go to 620
+      GOTO 29
+c  opcja 'H' - duza pamiec      
+c  rozpoznano 'H'      
+620   continue
+#if ! ( DISABLE_H == 1 )
+      if(sign.eq.ichar('+')) go to 625
+      c0m(4) = ibclr(c0m(4),12)
+      go to 10
+625   c0m(3) = ibset(c0m(3),12)
+#endif
+      go to 10            
+C  ROZPOZNANO 'C'
+C  ****** "ROZPOZNANO" MEANS "RECOGNIZED"
+C 670 IF (SIGN.EQ.ICHAR('+')) GO TO 675
+C     C0M(4)=IBCLR(C0M(4),5)
+C     GOTO 10
+C 675 C0M(3)=IBSET(C0M(3),5)
+C     GOTO 10
+C  ROZPOZNANO 'D'
+680   IF (SIGN.EQ.ICHAR('+')) GO TO 685
+      C0M(4)=IBCLR(C0M(4),4)
+      GOTO 10
+685   C0M(3)=IBSET(C0M(3),4)
+      GOTO 10
+C  ROZPOZNANO 'F'
+C 700 IF (SIGN.EQ.ICHAR('+')) GOTO 705
+C     C0M(4)=IBCLR(C0M(4),6)
+C     GOTO 10
+C 705 C0M(3)=IBSET(C0M(3),6)
+C     GOTO 10
+C  ROZPOZNANO 'I'
+C 730   IF (SIGN.EQ.ICHAR('+')) GOTO 735
+C       C0M(4)=IBCLR(C0M(4),2)
+C       GOTO 10
+C 735   C0M(3)=IBSET(C0M(3),2)
+C       GOTO 10
+C  ROZPOZNANO 'L'
+760   IF (SIGN.EQ.ICHAR('+')) GOTO 765
+      C0M(4)=IBCLR(C0M(4),15)
+      GOTO 10
+765   C0M(3)=IBSET(C0M(3),15)
+      GOTO 10
+C  ROZPOZNANO 'M'
+C 770   IF (SIGN.EQ.ICHAR('+')) GOTO 775
+C       C0M(4)=IBCLR(C0M(4),0)
+C       GOTO 10
+C 775   C0M(3)=IBSET(C0M(3),0)
+C       GOTO 10
+C  ROZPOZNANO 'O'
+790   IF (SIGN.EQ.ICHAR('+')) GOTO 795
+      C0M(4)=IBCLR(C0M(4),1)
+      GOTO 10
+795   C0M(3)=IBSET(C0M(3),1)
+      GOTO 10
+C  ROZPOZNANO 'P'
+C 800 IF (SIGN.EQ.ICHAR('+')) GOTO 805
+C     C0M(4)=IBCLR(C0M(4),14)
+C     GOTO 10
+C 805 C0M(3)=IBSET(C0M(3),14)
+C     GOTO 10
+cdeb  added
+C  ROZPOZNANO 'S'
+  830 IF (SIGN.EQ.ICHAR('+')) GOTO 835
+      C0M(4)=IBCLR(C0M(4),13)
+      GOTO 10
+  835 C0M(3)=IBSET(C0M(3),13)
+      GOTO 10
+cdeb
+C  ROZPOZNANO 'T'
+840   IF (SIGN.EQ.ICHAR('+')) GOTO 845
+      C0M(4)=IBCLR(C0M(4),3)
+      GOTO 10
+845   C0M(3)=IBSET(C0M(3),3)
+      GOTO 10
+9999  C0M(2)=IOR(C0M(3),IAND(C0M(4),C0M(2)))
+
+      call ffputnl(0)
+      call ffputcs(0,' Pass One')
+      call ffputnl(0)
+      call ffputnl(0)
+
+      RETURN
+      END
+
+      SUBROUTINE  MESS
+C----------------DISPLAYS END-OF-PASS INFORMATION
+      IMPLICIT INTEGER (A-Z)
+C
+#include "blank.h"
+      COMMON /MJLMSG/ IERC, MSG
+      integer*4 msg
+C ---
+      IOP(1) = IOP(1)+1
+      IF (IERC .EQ. 0) RETURN
+C ---
+      IF (IOP(1).LE.7) RETURN
+C ---
+      END
+

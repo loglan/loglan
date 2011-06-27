@@ -1,0 +1,34 @@
+Here you have the sources. 
+     They are in Unix format. Use unix2dos to read them in DOS.
+
+Unix users:
+  You should build
+	1. the crosscompiler F2C used by make to construct loglan
+	2. loglan i.e. pass1
+	3. gen i.e. pass2
+	4. int i.e. the executor
+You have four directories. In each directory locate the file 
+    makefile
+- do a copy of it
+- modify the makefile in accordance to your equipment and needs
+- execute:
+      make
+- store the resulting executable where you wish to keep executables
+
+Attention!
+  in INT you should build "int" and "herc"
+do:
+	make   --in order to make int
+	make herc    --in order to make herc a graphic partner of int
+__________________________
+New: new version "xint" of int and "xiuwgraf" are available. Not integrated yet.
+     25 October 1993
+
+=============================================================================
+RESEARCH.
+
+We are in train of constructing new pass1 for the present Loglan82 as well 
+as for new Loglan93.
+Should you feel interested in cooperation, contact
+     salwicki@infpc1.univ-pau.fr
+

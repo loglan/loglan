@@ -1,0 +1,83 @@
+
+		Zestaw dystrybucyjny pakietu
+	podstawowych procedur graficznych IIUWGRAF
+			( wersja 2.2 )
+
+
+1. IIUWGRAF TXT  -  dokumentacja
+
+	DISTRIB.TXT   -  niniejszy tekst
+	IIUWGRAF.DOC  -  podrecznik ( pod PWORDem )
+	IIUWGRAF.STY  -  definicja stylow ( WORD )
+	IIUWGRAF.DHN  -  podrecznik ( WORD, wersja DHN )
+	IIUWGRAF.POL  -  podrecznik ( bez polskich liter, do drukowania )
+	GRAPH.H       -  deklaracja procedur IIUWGRAFu dla MS Pascala
+
+
+2. IIUWGRAF_LB   -  biblioteki
+
+	HGCMSF.LIB    -  Hercules, MS Fortran/Pascal
+	HGCMSF4.LIB   -  Hercules, MS Fortran v.4.00
+	MGCMSF.LIB    -  IBM Color/Graphics, MS Fortran/Pascal
+	MGCMSF4.LIB   -  IBM Color/Graphics, MS Fortran v.4.00
+	MGC64MSF.LIB  -  IBM Color/Graphics (tryb 640*200),
+	                  MS Fortran/Pascal
+	MGC64MF4.LIB  -  IBM Color/Graphics (tryb 640*200),
+	                  MS Fortran v.4.00
+	HGCCS.LIB     -  Hercules, Lattice C model S
+	HGCCD.LIB     -  Hercules, Lattice C model D
+	HGCCP.LIB     -  Hercules, Lattice C model P
+	HGCCL.LIB     -  Hercules, Lattice C model L
+
+
+3. IIUWGRAF_LC   - biblioteki ( Lattice C )
+
+	MGCCS.LIB    -  IBM Color/Graphics, Lattice C model S
+	MGCCD.LIB    -  IBM Color/Graphics, Lattice C model D
+	MGCCP.LIB    -  IBM Color/Graphics, Lattice C model P
+	MGCCL.LIB    -  IBM Color/Graphics, Lattice C model L
+	MGC64CS.LIB  -  IBM Color/Graphics (tryb 640*200),
+	                  Lattice C model S
+	MGC64CD.LIB  -  IBM Color/Graphics (tryb 640*200),
+	                  Lattice C model D
+	MGC64CP.LIB  -  IBM Color/Graphics (tryb 640*200),
+	                  Lattice C model P
+	MGC64CL.LIB  -  IBM Color/Graphics (tryb 640*200),
+	                  Lattice C model L
+
+
+4. HGCDEMO
+
+	HGCDEMO.EXE  -  program pokazowy dla karty Hercules
+	HGCFEDIT.EXE -  edytor znakow ( Hercules )
+	DUMP1.DAT    -  dane dla programu pokazowego
+	DUMP2.DAT    -  dane dla programu pokazowego
+	HGCPRINT.EXE -  program do drukowania obrazu graficznego,
+	                ( Hercules )
+
+
+
+5. MGCDEMO
+
+	MGCDEMO.EXE   -  program pokazowy dla karty IBM Color/Graphics
+	MGCFEDIT.EXE  -  edytor znakow ( IBM Color/Graphics )
+
+	MGC64DEM.EXE  -  program pokazowy dla karty
+	                 IBM Color/Graphics  ( tryb 640*200 )
+	MGC64FED.EXE  -  edytor znakow
+	                 ( IBM Color/Graphics, tryb 640*200 )
+	MGCPRINT.EXE  -  program do drukowania obrazu graficznego
+	                 ( IBM Color/Graphics )
+
+
+6. IIUWGRAF EGA  ( zestaw dystrybucyjny dla karty EGA )
+
+	EGAMSF.LIB   -  biblioteka, MS Fortran/Pascal
+	EGAMSF4.LIB  -  biblioteka, MS Fortran v.4.00
+	EGACS.LIB    -  biblioteka, Lattice C model S
+	EGACD.LIB    -  biblioteka, Lattice C model D
+	EGACP.LIB    -  biblioteka, Lattice C model P
+	EGACL.LIB    -  biblioteka, Lattice C model L
+
+	EGADEMO.EXE  -  program pokazowy
+	EGAFEDIT.EXE -  edytor znakow

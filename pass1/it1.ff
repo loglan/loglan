@@ -1,0 +1,1892 @@
+C    Loglan82 Compiler&Interpreter
+C     Copyright (C) 1981-1993 Institute of Informatics, University of Warsaw
+C     Copyright (C)  1993, 1994 LITA, Pau
+C     
+C     This program is free software; you can redistribute it and/or modify
+C     it under the terms of the GNU General Public License as published by
+C     the Free Software Foundation; either version 2 of the License, or
+C     (at your option) any later version.
+C     
+C     This program is distributed in the hope that it will be useful,
+C     but WITHOUT ANY WARRANTY; without even the implied warranty of
+C     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+C     GNU General Public License for more details. File: LICENSE.GNU
+C  ===============================================================     
+
+      subroutine it1
+C--------------LACZNIK 1-------------------------------
+C             - PRZESYLA CZESC INFORMACJI ZE SCANNERA NA PLIKI
+C             - INICJUJE ZMIENNE DLA POTRZEB ANALIZY DEKLARACJI
+C               I POZNIEJSZYCH PRZEBIEGOW
+C             - SORTUJE TOPOLOGICZNIE DEKLARACJE TYPOW
+C
+C             OPIS W DOKUMENTACJI:       D.I.2
+C             WERSJA Z DNIA:             19.01.82
+C             DLUGOSC KODU:       116
+C...........................................................
+C
+      IMPLICIT INTEGER  (A-Z)
+C     INSERTION OF
+      LOGICAL BTEST
+C     BECAUSE OF TYPECONFLICT    03.01.84
+C+
+C-
+CALL STREAM
+      LOGICAL  ERRFLG
+      COMMON /STREAM/  ERRFLG, LINE, IBUF2(265), IBUF3(7),JUNK(260)
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+      character*4 msg
+      COMMON /MJLMSG/ IERC, MSG
+CALL #
+      LOGICAL  SYSPP
+cdsw  COMMON /SYSPP/ SYSPP
+      common /sysppc/ syspp
+
+
+cdeb ----------- added ----------------------
+c  new common blockfor the debugger
+      common /debug/ deb,breakt(500),brnr,maxbr
+      logical deb
+c  deb = true - compilation with the debugger
+c  breakt - array of static break points
+c  brnr - index in breakt
+c  maxbr - maximal number of static break points
+cdeb ----------------------------------------
+
+C
+cdsw  DATA IDENT /4HIT1 /
+C
+      IERC = 0
+      MSG = 'it1 '
+C    ---ZBADANIE, CZY MA BYC DZIALANIE W OTOCZENIU SYSPP
+      SYSPP = BTEST(COM(3), 14)
+C*********** SCIAGNIECIE BUFOROW PLIKOW
+C --- BUFFERS NEED NOT BE FETCHED IN THE 'ONE-OVERLAY' VERSION
+C     CALL  MGTBUF
+      NEMPTY = 0
+      CALL  APARS
+C*********** INICJALIZACJA ZMIENNYCH GLOBALNYCH
+      IPMEM(ISFIN-8) = COM(2)
+      LPMF = ISFIN -9
+C
+      LPML = 1
+      COM(4) = LPMEM
+      INSYS = .TRUE.
+C*********** INICJALIZACJA PROTOTYPOW SYSTEMOWYCH
+      CALL  INIT
+C*********** SORTOWANIE TOPOLOGICZNE TYPOW
+      I = LPMEM
+C...........POBRANIE ELEMENTU ZE SLOWNIKA
+  100 PROT = IPMEM(I)
+C     ... PROT - PROTOTYP, KTOREGO DEKLARACJE SA SORTOWANE
+      IF (PROT.NE. 0)    CALL  TORD(PROT)
+      I = I-1
+      IF (I .GE. ISFIN)    GOTO  100
+C************ PRZESLANIE BUFOROW
+C --- BUFFERS NEED NOT BE SENT IN THE 'ONE-OVERLAY' VERSION
+C     CALL  MPTBUF
+      CALL  MESS
+      IF (SYSPP)    CALL  MPPMES
+cdeb      CALL DSW
+cdeb ------------- added ---------------
+      if(deb.and..not.errflg) go to 1000
+      call dsw
+      return
+1000  call ts1
+cdeb -----------------------------------
+      END
+
+
+      SUBROUTINE  MPPMES
+C------------------DRUKUJE INFORMACJE O PRZYLACZENIU BIBLIOTEKI SYSPP
+      IMPLICIT INTEGER(A-Z)
+CALL STREAM
+CALL #
+      call ffputspaces(6,10)
+      call ffputcs(6,'-- SYSPP LIBRARY ADDED')
+      call ffputnl(6)
+      RETURN
+      END
+
+
+      SUBROUTINE  APARS
+C---------------PRZESYLA TABLICE HASH-U SCANNERA NA STRUMIEN SC
+C               DO POCZATKOWYCH BLOKOW
+C
+C             OPIS W DOKUMENTACJI:         D.I.3
+C             WERSJA Z DNIA:               19.01.82
+C             DLUGOSC KODU:        338
+C.............................................................
+      IMPLICIT INTEGER (A-Z)
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     x        hash(8000)
+cdsw X        IPMEM(5000)
+CALL STREAM
+      LOGICAL  ERRFLG
+      COMMON /STREAM/  ERRFLG, LINE, IBUF2(265), IBUF3(7),JUNK(260)
+      
+CALL #
+C
+C------PRZEWINIECIE STRUMIENIA  SC
+      CALL  SEEK(IBUF3, 0)
+C------PRZEPISANIE BLOKOW TWORZACYCH TABLICE HASH-U
+cdsw  ----------------------
+c  dodane przepisywanie tablicy hash2
+      do 100 i=1,8000,256
+      call put  (ibuf3,hash(i))
+100   continue
+      RETURN
+      END
+      SUBROUTINE  INIT
+C--------------INICJALIZACJA PROTOTYPOW SYSTEMOWYCH
+C
+C             OPIS W DOKUMENTACJI:             D.I.4
+C             WERSJA Z DNIA:                   19.01.82
+C             DLUGOSC KODU:        1079
+C...............................................................
+C
+      IMPLICIT INTEGER (A-Z)
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL #
+      logical btest
+      LOGICAL  SYSPP
+cdsw  COMMON /SYSPP/ SYSPP
+      common /sysppc/syspp
+C
+C.....NAZWY HASH-U ZE SCANNERA
+C#F
+      COMMON /HNAMES/ INTNM, RENM, BOOLNM, CHRNM, CORNM,
+     X           PROCNM, TEXTNM, FILENM
+
+C
+      common /option/opt
+
+      common /prefs/lprefs
+c  lprefs - ostatnio przydzielony numer w prefixset
+
+c  grpref - numer prefiksu klasy IIUWGRAPH
+c  mousepref - numer prefiksu klasy MOUSE
+
+c  system class prototypes:
+      common /syspro/prgraph, prmouse
+c  prgraph - prototype of IIUWGRAPH
+c  prmouse - prototype of MOUSE
+
+cdsw  DATA INTNM,RENM,BOOLNM,CHRNM,CORNM,PROCNM,TEXTNM,FILENM
+cdsw X /24,40,8,16,2919,2785,48,56/
+C NATTR - ATRYBUT "-1" (1 SLOWO, 2 DOMYSLNE)
+cdsw  DATA    INHEX1,INHEX2,INHEX3,INHEX4,INHEX5,INHEX6,INHEX7,INHEX8,
+cdsw XINHEX9,INHEX10,INHEX11,INHEX12,INHEX13,INHEX14,INHEX15,XX
+cdsw X/Z0008,Z8008,Z000A,Z000B,ZC007,ZC005,Z000C,Z0004,ZC00E,Z8051,
+cdsw X Z8061,Z0051,Z0061,ZC061,ZC051,Z0004/
+cdsw  --------------------------------------------------------------
+c    #8008 --> -#7ff8, #c007 --> -#3ff9, #c005 --> -#3ffb,
+c    #c00e --> -#3ff2, #8051 -->   -#7faf, #8061 -->  -#7f9f,
+c    #c061 --> -#3f9f, #c051 -->  -#3faf
+      data inhex1,inhex2,inhex3,inhex4,inhex5,inhex6,inhex7,inhex8,
+     * inhex9,inhx10,inhx11,inhx12,inhx13,inhx14,inhx15,xx
+     */x'0008',-x'7ff8', x'000a',x'000b',
+     *-x'3ff9',-x'3ffb', x'000c',x'0004',
+     *-x'3ff2',-x'7faf',-x'7f9f',x'0051',
+     * x'0061',-x'3f9f',-x'3faf',x'0004'/
+cdeb ------------------- added ----------------
+      data inhx16, inhx17,inhx18 / x'0091', x'8091', x'c091' /
+cdeb ----------------------------------------
+
+      intnm=24
+      renm=40
+      boolnm = 8
+      chrnm = 16
+      cornm = 2919
+      procnm = 2785
+      textnm = 48
+      filenm = 56
+
+cdsw  ----------------------------------------------------------------
+      NATTR = LPML+2
+      IPMEM(LPML) = -1
+      LPML = LPML+1
+C
+C NRINT
+      NRINT = MGETM(3, 41)
+      IPMEM(NRINT) = INHEX1
+C NRRE
+      NRRE = MGETM(3,41)
+      IPMEM(NRRE) = INHEX2
+C
+C NRBOOL
+      NRBOOL = MGETM(3, 41)
+      IPMEM(NRBOOL) = INHEX3
+C
+C NRCHR
+      NRCHR = MGETM (3, 41)
+      IPMEM(NRCHR) = INHEX3
+C#F
+C
+C NRFILE
+	NRFILE = MGETM(3, 41)
+	IPMEM(NRFILE) = INHEX4
+C
+C NRCOR
+      NRCOR = MGETM(9, 41) + 7
+      IPMEM(NRCOR) = INHEX5
+C         NUMER W ZBIORZE PREFIKSOW ORAZ SLOWO Z TEGO ZBIORU
+      IPMEM(NRCOR-1) = 0
+      CALL  MSETB(NRCOR, 0)
+      CALL  MSETB(NRCOR, 2)
+C
+C NRPROC
+      NRPROC = MGETM(9, 41) + 7
+      IPMEM(NRPROC) = INHEX6
+      IPMEM(NRPROC-6) = 1
+      CALL  MSETB(NRPROC, 0)
+      CALL  MSETB(NRPROC, 1)
+      CALL  MSETB(NRPROC, 2)
+C
+C NRTEXT
+      NRTEXT = MGETM(3, 41)
+      IPMEM(NRTEXT) = INHEX7
+C
+C NRUNIV
+      NRUNIV = MGETM(9, 41) + 7
+      IPMEM(NRUNIV) = INHEX8
+      IPMEM(NRUNIV-6) = 2
+      IPMEM(NRUNIV-5) = XX
+      IPMEM(NRUNIV-4) = XX
+      IPMEM(NRUNIV-3) = XX
+C
+C NRNONE
+      NRNONE = MGETM(9, 41) + 7
+      IPMEM(NRNONE) = INHEX9
+      IPMEM(NRNONE-6) = 2
+      CALL  MSETB(NRNONE, 2)
+C
+cdsw  
+c  stala intsize
+      wrds1 = mgetm(6, 41)+4
+      ipmem(wrds1-3) = nrint
+      ipmem(wrds1+1) = 1
+      ipmem(wrds1) = X'0081'
+#if ( WSIZE == 4 )
+      i = 4
+#else
+      i = 2
+#endif
+      if( btest(opt,12) ) i = 4
+      ipmem(wrds1-1) = i
+c  stala realsize
+      wrds2 = mgetm(6, 41)+4
+      ipmem(wrds2-3) = nrint
+      ipmem(wrds2+1) = 1
+      ipmem(wrds2) = X'0081'
+      i = 4
+      if( btest(opt,12) ) i = 8
+      ipmem(wrds2-1) = i
+	     
+C
+C......INICJALIZACJA BLOKU SYSTEMOWEGO
+      NBLSYS = MGETM(21, 41) + 2
+      IPMEM(NBLSYS) = 1
+      IPMEM(NBLSYS+3) = 2
+C     USTAWIENIE SL DLA COROUTINE I PROCESS
+      IPMEM(NRCOR-1) = NBLSYS
+      IPMEM(NRPROC-1) = NBLSYS
+
+C  inicjalizacja lprefs
+      lprefs = 2
+C
+C......INICJALIZACJA FUNKCJI I PROCEDUR STANDARDOWYCH
+C   ...PARAMETRY - ICH OPISY
+C INPR - INPUT REAL
+      INPR = MGETM(6,41)+4
+      IPMEM(INPR-3) = NRRE
+      IPMEM(INPR+1) = 1
+      IPMEM(INPR) = INHX10
+C OUTPR - OUTPUT REAL (I RESULT)
+      OUTPR = MGETM(6,41)+4
+      IPMEM(OUTPR-3) = NRRE
+      IPMEM(OUTPR+1) = 1
+      IPMEM(OUTPR) = INHX11
+C INPI - INPUT INTEGER
+      INPI = MGETM(6, 41) +4
+      IPMEM(INPI-3) = NRINT
+      IPMEM(INPI+1) = 1
+      IPMEM(INPI) = INHX12
+C OUTPI - OUTPUT INTEGER (I RESULT)
+      OUTPI = MGETM(6, 41) +4
+      IPMEM(OUTPI-3) = NRINT
+      IPMEM(OUTPI+1) = 1
+      IPMEM(OUTPI) = INHX13
+C INPCH - INPUT CHARACTER
+      INPCH = MGETM(6, 41) +4
+      IPMEM(INPCH-3) = NRCHR
+      IPMEM(INPCH+1) = 1
+      IPMEM(INPCH) = INHX12
+C OUTPCH - OUTPUT CHARACTER (I RESULT)
+      OUTPCH = MGETM(6, 41) +4
+      IPMEM(OUTPCH-3) = NRCHR
+      IPMEM(OUTPCH+1) = 1
+      IPMEM(OUTPCH) = INHX13
+C OUTPB - OUTPUT BOOLEAN (I RESULT)
+      OUTPB = MGETM(6, 41) +4
+      IPMEM(OUTPB-3) = NRBOOL
+      IPMEM(OUTPB+1) = 1
+      IPMEM(OUTPB) = INHX13
+C OUTACH - OUTPUT ARRAYOF CHAR (I RESULT)
+      OUTACH = MGETM(6, 41) +4
+      IPMEM(OUTACH-4) = 1
+      IPMEM(OUTACH-3) = NRCHR
+      IPMEM(OUTACH+1) = 1
+      IPMEM(OUTACH) = INHX14
+C#F  NOWE OPISY PARAMETROW DLA PLIKOW
+C INPF - INPUT FILE
+      INPF = MGETM(6, 41) + 4
+      IPMEM(INPF - 3) = NRFILE
+      IPMEM(INPF+1) = 1
+      IPMEM(INPF) = INHX15
+C INPTX - INPUT TEXT (=STRING)
+      INPTX = MGETM(6, 41) + 4
+      IPMEM(INPTX-3) = NRTEXT
+      IPMEM(INPTX+1) = 1
+      IPMEM(INPTX) = INHX12
+C INPARI - INPUT ARRAYOF INTEGER
+      INPARI = MGETM(6, 41) + 4
+      IPMEM(INPARI-4) = 1
+      IPMEM(INPARI-3) = NRINT
+      IPMEM(INPARI+1) = 1
+      IPMEM(INPARI) = INHX15
+cdsw --------------- for exec---
+c inparch - input arrayof char
+      inparch = mgetm(6,41)+4
+      ipmem(inparch) = inhx15
+      ipmem(inparch+1) = 1
+      ipmem(inparch-3) = nrchr 
+      ipmem(inparch-4) = 1
+c
+c
+cdeb --------------- added ------------
+c  inoui - inout integer
+      inoui = mgetm(6,41)+4
+      ipmem(inoui-3) = nrint
+      ipmem(inoui+1) = 1
+      ipmem(inoui) = inhx16
+
+c  inour - inout  real
+      inour = mgetm(6,41)+4
+      ipmem(inour-3) = nrre
+      ipmem(inour+1) = 1
+      ipmem(inour) = inhx17
+
+c  inouari - inout arrayof integer
+      inouari = mgetm(6,41)+4
+      ipmem(inouari-4) = 1
+      ipmem(inouari-3) = nrint
+      ipmem(inouari+1) = 1
+      ipmem(inouari) = inhx18
+cdeb -------------------------------
+C
+C   ...LISTY PARAMETROW FORMALNYCH
+C   FPL1 - (INPUT REAL): REAL
+      FPL1 = MGETM(2, 41)
+      IPMEM(FPL1) = INPR
+      IPMEM(FPL1+1) = OUTPR
+C   FPL2 - (INPUT INTEGER, INPUT INTEGER, INPUT INTEGER): INTEGER
+      FPL2 = MGETM(4, 41)
+      IPMEM(FPL2) = INPI
+      IPMEM(FPL2+1) = INPI
+      IPMEM(FPL2+2) = INPI
+      IPMEM(FPL2+3) = OUTPI
+C   FPL3 - (INPUT REAL): INTEGER
+      FPL3 = MGETM(2, 41)
+      IPMEM(FPL3) = INPR
+      IPMEM(FPL3+1) = OUTPI
+C   FPL4 - :BOOLEAN
+      FPL4 = MGETM(1, 41)
+      IPMEM(FPL4) = OUTPB
+C
+C   FPL5 - (INPUT INTEGER): CHARACTER
+      FPL5 = MGETM(2, 41)
+      IPMEM(FPL5) = INPI
+      IPMEM(FPL5+1) = OUTPCH
+C
+C   FPL6 - (INPUT CHARACTER): INTEGER
+      FPL6 = MGETM(2, 41)
+      IPMEM(FPL6) = INPCH
+      IPMEM(FPL6+1) = OUTPI
+C
+C   FPL7 - (OUTPUT INTEGER, INTEGER, INTEGER)
+      FPL7 = MGETM(3, 41)
+      IPMEM(FPL7) = OUTPI
+      IPMEM(FPL7+1) = OUTPI
+      IPMEM(FPL7+2) = OUTPI
+C   FPL8 - (INPUT TEXT, OUTPUT ARRAY OF CHAR)
+      FPL8 = MGETM(2, 41)
+      IPMEM(FPL8) = INPTX
+      IPMEM(FPL8+1) = OUTACH
+C#F  NOWE LISTY DLA PLIKOW
+C
+C   FPL9 - (INPUT FILE, INPUT INTEGER, INPUT ARRAYOF INTEGER)
+      FPL9 = MGETM(3, 41)
+      IPMEM(FPL9) = INPF
+      IPMEM(FPL9+1) = INPI
+      IPMEM(FPL9+2) = INPARI
+C
+C   FPL10 - (INPUT FILE, INPUT TEXT)
+      FPL10 = MGETM(2, 41)
+      IPMEM(FPL10) = INPF
+      IPMEM(FPL10+1) = INPTX
+
+cdeb ------------ added --------------
+c  fpl11 - (input integer, inout arrayof integer, integer,
+c                 arrayof integer, real, integer)
+      fpl11 = mgetm(6,41)
+      ipmem(fpl11) = inpi
+      ipmem(fpl11+1) = inouari
+      ipmem(fpl11+2) = inoui
+      ipmem(fpl11+3) = inouari
+      ipmem(fpl11+4) = inour
+      ipmem(fpl11+5) = inoui
+
+c  fpl12 - (input integer, inout integer, integer,arrayof integer)
+      fpl12 = mgetm(4,41)
+      ipmem(fpl12) = inpi
+      ipmem(fpl12+1) = inoui
+      ipmem(fpl12+2) = inoui
+      ipmem(fpl12+3) = inouari
+
+c  fpl18 - (input file,file)
+      fpl18 = mgetm(2,41)
+      ipmem(fpl18) = inpf
+      ipmem(fpl18+1) = inpf
+cdeb --------------------------------
+cdsw ---------- for exec ------
+c  fpl13 - (input arrayof char, input arrayof char):integer
+      fpl13 = mgetm(2,41)
+      ipmem(fpl13) = inparch
+      ipmem(fpl13+1) = outpi
+c fpl14 - input file, input integer, input integer
+      fpl14 = mgetm(3,41)
+      ipmem(fpl14) = inpf
+      ipmem(fpl14+1) = inpi
+      ipmem(fpl14+2) = inpi      
+c fpl15 - input integer, input integer, input integer, input integer
+      fpl15 = mgetm(4,41)
+      ipmem(fpl15) = inpi
+      ipmem(fpl15+1) = inpi
+      ipmem(fpl15+2) = inpi
+      ipmem(fpl15+3) = inpi
+c fpl16 - input file, output integer
+      fpl16 = mgetm(2,41)
+      ipmem(fpl16) = inpf
+#if ( WSIZE == 4 )
+      ipmem(fpl16+1) = outpi
+#else
+CPS - pozycja w pliku : REAL ??? !
+      ipmem(fpl16+1) = outpr
+#endif
+
+
+C   ...PROTOTYPY FUNKCJI STANDARDOWYCH I ICH WLACZENIE DO LISTY HASHU
+C INOT: FUNCTION(INPUT X: INTEGER) : INTEGER
+      CALL  MSTAFP(2613, FPL2+2, 2, 0, NRINT, OUTPI, -1, nblsys)
+C IOR: FUNCTION (INPUT X: INTEGER INPUT Y: INTEGER): INTEGER
+      CALL  MSTAFP(335, FPL2+1, 3, 0, NRINT, OUTPI, -2, nblsys)
+C IAND:  FUNCTION (INPUT X: INTEGER INPUT Y: INTEGER): INTEGER
+      CALL  MSTAFP(307, FPL2+1, 3, 0, NRINT, OUTPI, -3, nblsys)
+C ISHFT: FUNCTION (INPUT X: INTEGER INPUT Y: INTEGER): INTEGER
+      CALL  MSTAFP(2605, FPL2+1, 3, 0, NRINT, OUTPI, -4, nblsys)
+C EOF: FUNCTION: BOOLEAN
+cfile CALL  MSTAFP(1841, FPL4, 1, 0, NRBOOL, OUTPB, 39, nblsys)
+C ENTIER: FUNCTION (INPUT X: REAL): INTEGER
+      CALL  MSTAFP(2589, FPL3, 2, 0, NRINT, OUTPI, 15, nblsys)
+C RANDOM: FUNCTION: REAL
+      CALL  MSTAFP(2599, FPL1+1, 1, 0, NRRE, OUTPR, 12, nblsys)
+C TIME: FUNCTION: INTEGER
+      CALL  MSTAFP(1731, FPL3+1, 1, 0, NRINT, OUTPI, 13, nblsys)
+C SQRT: FUNCTION (INPUT X: REAL): REAL
+      CALL  MSTAFP(1619, FPL1, 2, 0, NRRE, OUTPR, 14, nblsys)
+C ROUND: FUNCTION (INPUT X: REAL): INTEGER
+      CALL  MSTAFP(1487, FPL3, 2, 0, NRINT, OUTPI, 16, nblsys)
+C EOLN: FUNCTION: BOOLEAN
+cfile CALL  MSTAFP(2579, FPL4, 1, 0, NRBOOL, OUTPB, 74, nblsys)
+C ORD: FUNCTION(INPUT X: CHARACTER): INTEGER
+      CALL  MSTAFP(2571, FPL6, 2, 0, NRINT, OUTPI, -5, nblsys)
+C CHR: FUNCTION(INPUT X: INTEGER): CHARACTER
+      CALL  MSTAFP(2575, FPL5, 2, 0, NRCHR, OUTPCH, -6, nblsys)
+C SIN: FUNCTION(INPUT REAL): REAL
+      CALL  MSTAFP(2563, FPL1, 2, 0, NRRE, OUTPR, 23, nblsys)
+C COS: FUNCTION(INPUT REAL): REAL
+      CALL  MSTAFP(2559, FPL1, 2, 0, NRRE, OUTPR, 24, nblsys)
+C TAN: FUNCTION (INPUT REAL): REAL
+      CALL  MSTAFP(2555, FPL1, 2, 0, NRRE, OUTPR, 25, nblsys)
+C EXP: FUNCTION (INPUT REAL): REAL
+      CALL  MSTAFP(2551, FPL1, 2, 0, NRRE, OUTPR, 26, nblsys)
+C LN: FUNCTION (INPUT REAL): REAL
+      CALL  MSTAFP(717, FPL1, 2, 0, NRRE, OUTPR, 27, nblsys)
+C ATAN: FUNCTION (INPUT REAL): REAL
+      CALL  MSTAFP(2547, FPL1, 2, 0, NRRE, OUTPR, 28, nblsys)
+C IMIN: FUNCTION (INUT INTEGER, INPUT INTEGER): INTEGER
+      CALL  MSTAFP(331, FPL2+1, 3, 0, NRINT, OUTPI, 19, nblsys)
+C IMIN3: FUNCTION (INPUT INTEGER, INPUT INTEGER, INPUT INTEGER): INTEGER
+      CALL  MSTAFP(2521, FPL2, 4, 0, NRINT, OUTPI, 21, nblsys)
+C IMAX: FUNCTION (INPUT INTEGER, INPUT INTEGER): INTEGER
+      CALL  MSTAFP(2515, FPL2+1, 3, 0, NRINT, OUTPI, 20, nblsys)
+C IMAX3: FUNCTION (INPUT INTEGER, INPUT INTEGER, INPUT INTEGER): INTEGER
+      CALL  MSTAFP(2511, FPL2, 4, 0, NRINT, OUTPI, 22, nblsys)
+C XOR: FUNCTION(INPUT X,Y: INTEGER): INTEGER
+      CALL  MSTAFP(237, FPL2+1, 3, 0, NRINT, OUTPI, -7, nblsys)
+C PANELKEYS: FUNCTION: INTEGER
+      CALL  MSTAFP (1203, FPL3+1, 1, 0, NRINT, OUTPI, 18, nblsys)
+C ENDRUN : PROCEDURE
+      CALL  MSTAFP(2483, 0, 0, 0, 0, 0, 29, nblsys)
+C RANSET: PROCEDURE(INPUT X: REAL)
+      CALL  MSTAFP(2375, FPL1, 1, 0, 0, 0, 30, nblsys)
+C CLOCK: PROCEDURE(OUTPUT H,M,S: INTEGER)
+      CALL  MSTAFP(2369, FPL7, 3, 0, 0, 0, 31, nblsys)
+C OPTIONS: FUNCTION: INTEGER
+      CALL  MSTAFP(1105, FPL3+1, 1, 0, NRINT, OUTPI, 32, nblsys)
+C DATE: PROCEDURE (OUTPUT Y,M,D: INTEGER)
+      CALL  MSTAFP(1685, FPL7, 3, 0, 0, 0, 36, nblsys)
+C EXECPAR: FUNCTION: ARRAYOF CHAR
+      CALL  MSTAFP(2357, FPL8+1, 1, 1, NRCHR, OUTACH, 37, nblsys)
+C UNPACK: FUNCTION( INPUT TEXT): ARRAYOF CHAR
+      CALL  MSTAFP(2247, FPL8, 2, 1, NRCHR, OUTACH, 11, nblsys)
+cdsw  --- removed  ------
+C#F  NOWE PROCEDURY DLA PLIKOW
+C REW: PROCEDURE(INPUT FILE)
+cdsw  CALL  MSTAFP(2339, FPL9, 1, 0, 0, 0, 2, nblsys)
+C AVF: PROCEDURE(INPUT FILE, INPUT INTEGER)
+cdsw  CALL MSTAFP(1343, FPL9, 2, 0, 0, 0, 3, nblsys)
+C BVF: PROCEDURE(INPUT FILE, INPUT INTEGER)
+cdsw  CALL MSTAFP(1471, FPL9, 2, 0, 0, 0, 4, nblsys)
+C WEO: PROCEDURE(INPUT FILE)
+cdsw  CALL MSTAFP(  89, FPL9, 1, 0, 0, 0, 5, nblsys)
+C PUtREC: PROCEDURE(INPUT FILE, INPUT INTEGER, INPUT ARRAYOF INTEGER)
+cdsw  CALL MSTAFP(1243, FPL9, 3, 0, 0, 0, 6, nblsys)
+C GETREC: PROCEDURE(INPUT FILE, INPUT INTEGER, INPUT ARRAYOF INTEGER)
+cdsw  CALL MSTAFP(  59, FPL9, 3, 0, 0, 0, 7, nblsys)
+C ASS: PROCEDURE(INPUT FILE, INPUT TEXT)
+cdsw  CALL MSTAFP(2335, FPL10, 2, 0, 0, 0, 8, nblsys)
+C ASSIN: PROCEDURE(INPUT STRING)
+cdsw  CALL MSTAFP(2241, FPL10+1, 1, 0, 0, 0, 9, nblsys)
+C ASSOUT: PROCEDURE(INPUT STRING)
+cdsw  CALL MSTAFP(2235, FPL10+1, 1, 0, 0, 0, 10, nblsys)
+cfile  ---------------  added  ----------------------
+c reset: procedure(input file)
+      call mstafp(2253,fpl9,1,0,0,0,78, nblsys)
+c  rewrite:procedure(input file)
+      call mstafp(2259,fpl9,1,0,0,0,79, nblsys)
+c unlink:procedure(input file)
+      call mstafp(2087,fpl9,1,0,0,0,80, nblsys)
+c seek:procedure(input file,input integer, input integer)
+      call mstafp(2091,fpl14,3,0,0,0,81, nblsys)      
+c position : function(input file):integer
+#if ( WSIZE == 4 )
+      call mstafp(2023, fpl16, 2, 0, nrint, outpi, 84, nblsys)
+#else
+      call mstafp(2023, fpl16, 2, 0, nrre,  outpr, 84, nblsys)
+#endif
+c memavail : function:integer
+      call mstafp(7847, fpl2+3, 1, 0, nrint, outpi, 98, nblsys) 
+c exec:function(input arrayof char):integer
+      call mstafp(2101,fpl13,2,0,nrint,outpi,99, nblsys)
+C
+cdeb    ------------   debugger ------------
+c db01ox:procedure(nr:integer; inout ref1:arrayof integer,
+c                  offset:integer, ref2:arrayof integer, realval:real,
+c                  intval:integer );
+      call mstafp(7759,fpl11,6,0,0,0,150, nblsys)
+
+c  sccd01ox : procedure(nr:integer; inout max,lp:integer, bufor:arrayof int );
+      call mstafp(7739,fpl12,4,0,0,0,151, nblsys)
+
+c  scnd01ox:procedure(output s,k,adres:integer);
+      call mstafp(7747,fpl7,3,0,0,0,152, nblsys)
+
+c  db01of : procedure(input f1,f2:file);
+      call mstafp(7753,fpl18,2,0,0,0,153, nblsys)
+
+c  db01oe : procedure;
+      call mstafp(7731,0,0,0,0,0, 154, nblsys) 
+cdeb -------------------------------------------
+
+cgr ------------- grafika ------------------
+
+c  utworzenie klasy IIUWGRAPH
+	prgraph = mstacl(323, nblsys)       
+	grpref = lprefs
+
+	outari = mgetm(6,41)+4
+	ipmem(outari-4) = 1
+	ipmem(outari-3) = nrint
+	ipmem(outari+1) = 1
+	ipmem(outari)   = inhx14
+
+	toto = mgetm(6,41)
+	ipmem(toto)    = inpi
+	ipmem(toto+1)  = inpi
+	ipmem(toto+2)  = inpi
+	ipmem(toto+3)  = inpi
+	ipmem(toto+4)  = inpi
+	ipmem(toto+5)  = inpi
+
+	toto2 = mgetm(5,41)
+	ipmem(toto2)   = inpi
+	ipmem(toto2+1) = inpi
+	ipmem(toto2+2) = inpi
+	ipmem(toto2+3) = inpi
+	ipmem(toto2+4) = inpi
+
+	toto3 = mgetm(10,41)
+	ipmem(toto3)    = inpi
+	ipmem(toto3+1)  = inpi
+	ipmem(toto3+2)  = inpi
+	ipmem(toto3+3)  = inpi
+	ipmem(toto3+4)  = inpi
+	ipmem(toto3+5)  = inpi
+	ipmem(toto3+6)  = inpi
+	ipmem(toto3+7)  = inpi
+	ipmem(toto3+8)  = inpi
+	ipmem(toto3+9)  = outpi
+
+	fpl22 = mgetm(9,41)
+	ipmem(fpl22)   = inpi
+	ipmem(fpl22+1) = inpi
+	ipmem(fpl22+2) = inpi
+	ipmem(fpl22+3) = inpr
+	ipmem(fpl22+4) = inpr
+	ipmem(fpl22+5) = inpi
+	ipmem(fpl22+6) = inpi
+	ipmem(fpl22+7) = inpi
+	ipmem(fpl22+8) = inpi
+
+	fpl23 = mgetm(3,41)
+	ipmem(fpl23) = inpi
+	ipmem(fpl23+1) = inpi
+	ipmem(fpl23+2) = outari
+	
+	toto5 = mgetm(9,41)
+	ipmem(toto5)   = inpi
+	ipmem(toto5+1) = inpi
+	ipmem(toto5+2) = inpi
+	ipmem(toto5+3) = inpi
+	ipmem(toto5+4) = inptx
+	ipmem(toto5+5) = inpi
+	ipmem(toto5+6) = inpi
+	ipmem(toto5+7) = inpi
+	ipmem(toto5+8) = outach
+	
+	toto6 = mgetm(5,41)
+	ipmem(toto6)   = inpi
+	ipmem(toto6+1) = inpi
+	ipmem(toto6+2) = inptx
+	ipmem(toto6+3) = inpi
+	ipmem(toto6+4) = inpi
+
+	toto7 = mgetm(5,41)
+	ipmem(toto7)   = inpi
+	ipmem(toto7+1) = inpari
+	ipmem(toto7+2) = inpari
+	ipmem(toto7+3) = inpi
+	ipmem(toto7+4) = inpi
+
+	toto8 = mgetm(8,41)
+	ipmem(toto8)   = inpi
+	ipmem(toto8+1) = inpi
+	ipmem(toto8+2) = inpi
+	ipmem(toto8+3) = inpi
+	ipmem(toto8+4) = inpi
+	ipmem(toto8+5) = inpi
+	ipmem(toto8+6) = inpi
+	ipmem(toto8+7) = inpi
+
+c gron:procedure(input integer)
+	call mstafp(85,fpl2,1,0,0,0,100, prgraph)
+
+c groff: procedure
+	call mstafp(2273,0,0,0,0,0,101, prgraph)
+
+c cls: procedure
+	call mstafp(2335,0,0,0,0,0,102, prgraph)
+
+c point: procedure(input integer, input integer)
+	call mstafp(1231,fpl2,2,0,0,0,103, prgraph)
+
+c move: procedure(input integer, input integer)
+	call mstafp(2279,fpl2,2,0,0,0,104, prgraph)
+
+c draw: procedure(input integer, input integer)
+	call mstafp(1719,fpl2,2,0,0,0,105, prgraph)
+
+c hfill: procedure(input integer)
+	call mstafp(189,fpl2,1,0,0,0,106, prgraph)
+
+c vfill: procedure(input integer)
+	call mstafp(2237,fpl2,1,0,0,0,107, prgraph)
+
+c color: procedure(input integer)
+	call mstafp(2231,fpl2,1,0,0,0,108, prgraph)
+
+c style: procedure(input integer)
+	call mstafp(2225,fpl2,1,0,0,0,109, prgraph)
+
+c patern: procedure(input integer,input integer,input integer,input integer,
+c                   input integer,input boolean)
+	call mstafp(2219,toto,6,0,0,0,110, prgraph)
+
+c intens: procedure(input integer,arrayof int,arrayof int,int,int)
+	call mstafp(2213,toto7,5,0,0,0,111, prgraph)
+
+c pallet: procedure(input integer)
+	call mstafp(2207,fpl2,1,0,0,0,112, prgraph)
+
+c border: procedure(input integer)
+	call mstafp(2201,fpl2,1,0,0,0,113, prgraph)
+
+c video: procedure(input array of integer)
+	call mstafp(2195,fpl9+2,1,0,0,0,114, prgraph)
+
+c hpage: procedure(input integer, input integer, input integer)
+	call mstafp(209,fpl2,3,0,0,0,115, prgraph)
+
+c nocard: function: integer
+	call mstafp(2029,fpl2+3,1,0,nrint,outpi,116, prgraph)
+
+c pushxy: procedure
+	call mstafp(2185,0,0,0,0,0,117, prgraph)
+
+c popxy: procedure
+	call mstafp(2179,0,0,0,0,0,118, prgraph)
+
+c inxpos: function: integer
+	call mstafp(2173,fpl2+3,1,0,nrint,outpi,119, prgraph)
+
+c inypos: function: integer
+	call mstafp(2167,fpl2+3,1,0,nrint,outpi,120, prgraph)
+
+c inpix: function(input integer, input integer): integer
+	call mstafp(2161,fpl2+1,3,0,nrint,outpi,121, prgraph)
+
+c getmap: function(input integer, input integer): array of integer
+	call mstafp(2155,fpl23,3,1,nrint,outari,122, prgraph)
+
+c putmap: procedure(input array of integer)
+	call mstafp(2149,fpl9+2,1,0,0,0,123, prgraph)
+
+c ormap: procedure(input array of integer)
+	call mstafp(2143,fpl9+2,1,0,0,0,124, prgraph)
+
+c xormap: procedure(input array of integer)
+	call mstafp(2137,fpl9+2,1,0,0,0,125, prgraph)
+
+c track: procedure(input integer, input integer,input integer,input integer)
+	call mstafp(2131,toto2,5,0,0,0,126, prgraph)
+
+c inkey: function: integer
+	call mstafp(2299,fpl2+3,1,0,nrint,outpi,127, prgraph)
+
+c hascii: procedure(input integer)
+	call mstafp(2293,fpl2,1,0,0,0,128, prgraph)
+
+c hfont: function(input integer,input integer,input integer,input integer)
+c  (intput integer,input integer,input integer,input integer,input integer):
+c   integer              new name : gscnum
+	call mstafp(2125,toto3,10,0,nrint,outpi,129, prgraph)
+
+c hfont8: function(input int, input int,input int,input int,input string
+c          intput int,input int,input int) : arrayof char
+	call mstafp(2119,toto5,9,1,nrchr,outari,130, prgraph)
+	
+c outstring: procedure(input int,input int,input string,input int,input int)
+	call mstafp(2113,toto6,5,0,0,0,131, prgraph)
+
+c cirb: procedure(input x,y,rx,ry,start,end,c,motif :integer)
+	call mstafp(1573,toto8,8,0,0,0,132, prgraph)
+
+cdsw -------------- mouse ------------------------
+      prmouse = mstacl(7991, nblsys)
+      mousepref = lprefs 
+
+c fpl30 - output int, output bool
+      fpl30 = mgetm(2,41)
+      ipmem(fpl30) = outpi
+      ipmem(fpl30+1) = outpb
+      
+c fpl31 - input integer, output integerl, output integer, output integer,
+c             output integer, output integer, output integer
+      fpl31 = mgetm(7, 41)
+      ipmem(fpl31) = outpi            
+      ipmem(fpl31+1) = outpi            
+      ipmem(fpl31+2) = outpi            
+      ipmem(fpl31+3) = outpi            
+      ipmem(fpl31+4) = outpi            
+      ipmem(fpl31+5) = outpi
+      ipmem(fpl31+6) = outpb            
+
+      toto4 = mgetm(2, 41)
+      ipmem(toto4)   = inpi
+      ipmem(toto4+1) = inpi
+
+
+c init : procedure(mouse,keyboard:integer);
+      call mstafp(7985, toto4, 2, 0, 0, 0,200,prmouse)
+
+c showcursor : procedure;
+      call mstafp(1601, 0, 0, 0, 0, 0, 201, prmouse)
+      
+c hidecursor : procedure;
+      call mstafp(7973, 0, 0, 0, 0, 0, 202, prmouse)
+      
+c status : procedure(output h,v:integer, l, r, c:boolean)
+      call mstafp(7963, fpl31+2, 5, 0, 0, 0, 203, prmouse)
+      
+c setposition : procedure(h,v:integer);
+      call mstafp(7957, fpl2, 2, 0, 0, 0, 204, prmouse)
+      
+c getpress : function( output h,v,p,l,r,c : integer) : boolean
+      call mstafp(7945, fpl31, 7, 0, nrbool, outpb, 205, prmouse)
+      
+c getrelease : function( output h,v,p,l,r,c : integer) : boolean
+      call mstafp(7937, fpl31, 7, 0, nrbool, outpb, 206, prmouse)
+      
+c setwindow : procedure ( l,r,t,b:integer)
+      call mstafp(7887, fpl15, 4, 0, 0, 0, 207, prmouse)
+      
+c defcursor : procedure (select, x, y:integer)
+      call mstafp(7917, fpl2, 3, 0, 0, 0, 210, prmouse)
+      
+c getmovement : procedure ( input mo,ke:integer)
+      call mstafp(7907, toto4, 2, 0, 0, 0, 211, prmouse)
+
+c setevent : procedure( m:integer )
+c     call mstafp(7865 , fpl2, 1, 0, 0, 0, 212, prmouse)
+      
+c setspeed : procedure ( speed:integer)
+      call mstafp(7895, fpl2, 1, 0, 0, 0, 215, prmouse)
+      
+c setmargins : procedure( l, r, t, b : integer)
+      call mstafp(7927, fpl15, 4, 0, 0, 0, 216, prmouse)
+      
+c setthreshold : procedure(t:integer)
+      call mstafp(7877, fpl2, 1, 0, 0, 0, 219, prmouse)                                           
+
+c  signal mouseevent
+c     call mstasg(7857 , 70, prmouse)
+     
+     
+C
+C.........UTWORZENIE I WSTAWIENIE DO TABLICY HASHU BLOKU GLOWNEGO
+C         PROTOTYPOW SYGNALOW STANDARDOWYCH
+C
+C NUMERROR
+      CALL MSTASG( 987,  1, nblsys)
+C SYSERROR
+      CALL MSTASG(1635,  2, nblsys)
+C LOGERROR
+      CALL MSTASG(2319, 20, nblsys)
+C ACCERROR
+      CALL MSTASG(1305, 21, nblsys)
+C MEMERROR
+      CALL MSTASG( 827, 22, nblsys)
+C CONERROR
+      CALL MSTASG(2311, 23, nblsys)
+C TYPERROR
+      CALL MSTASG(1995, 24, nblsys)
+C
+ 
+      i = nblsys+10
+C.......UZUPELNIENIE TABLICY HASHU BLOKU GLOWNEGO O TYPY STANDARDOWE
+      XX = INSERT(INTNM, IPMEM(I), 41)
+	IPMEM(XX+2) = NRINT
+      XX = INSERT(RENM, IPMEM(I), 41)
+	IPMEM(XX+2) = NRRE
+      XX = INSERT(BOOLNM, IPMEM(I), 41)
+	IPMEM(XX+2) = NRBOOL
+      XX = INSERT(CHRNM, IPMEM(I), 41)
+	IPMEM(XX+2) = NRCHR
+C#F
+      XX = INSERT(FILENM, IPMEM(I), 41)
+	IPMEM(XX+2) = NRFILE
+      XX = INSERT(CORNM, IPMEM(I), 41)
+	IPMEM(XX+2) = NRCOR
+      XX = INSERT(PROCNM, IPMEM(I), 41)
+	IPMEM(XX+2) = NRPROC
+      XX = INSERT(TEXTNM, IPMEM(I), 41)
+	IPMEM(XX+2) = NRTEXT
+      XX = INSERT(NEMPTY, IPMEM(I), 41)
+	IPMEM(XX+2) = NRUNIV
+cdsw
+c   stala intsize
+       xx = insert(2069,ipmem(i),41)
+       ipmem(xx+2) = wrds1
+c   stala realsize
+       xx = insert(2061,ipmem(i),41)
+       ipmem(xx+2) = wrds2
+	       
+	   
+C
+C
+      LPMSYS = LPML
+C
+C*******INICJALIZACJA SYSPP - W RAZIE POTRZEBY
+      IF (SYSPP)    CALL  MLSPP
+      RETURN
+      END
+
+cdsw      SUBROUTINE MSTASG( HNAME, NRSIG)
+      subroutine mstasg( hname, nrsig, sl)
+C------------- TWORZENIE PROTOTYPU SYGNALU STANDARDOWEGO
+C              JEST ON SKROCONY I NIE POSIADA TABLICY HASHU
+C              NAZW ATRYBUTOW. OSTATNIM SLOWEM JEST +7.
+C              PROCEDURA WYWOLYWANA JEDYNIE Z INIT
+C              WERSJA Z DN. 16 05 83
+
+      IMPLICIT INTEGER(A-Z)
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL #
+      data msthex /x'00b1'/
+
+C GENERACJA I INICJLIZACJA PROTOTYPU
+      IPROT = MGETM(9, 41) + 1
+cdsw      IPMEM(IPROT-1) = NBLSYS
+      ipmem(iprot-1) = sl
+      IPMEM(IPROT) = MSTHEX
+      IPMEM(IPROT+1) = NRSIG
+C
+C DODANIE NQZWY SYGNALU DO TBLICY HASHU W NBLYS
+cdsw      XX = INSERT(HNAME, IPMEM(NBLSYS+10), 41)
+      xx = insert(hname, ipmem(sl+10), 41)
+C NAZWA SYGNALU JEST CLOSED
+      IPMEM(XX+1) = 1
+      IPMEM(XX+2) = IPROT
+      RETURN
+      END
+
+      SUBROUTINE  MSTAFP( HNAME, FPLIST, FPLENG, NDIM, NTYPE, NRESLT,
+     x                    nrfp, sl) 
+cdsw     X                        NRFP)
+C----------------PROCEDURA TWORZY PROTOTYP FUNKCJI STANDARDOWEJ
+C                I PROCEDURY STANDARDOWEJ - WTEDY NTYPE=0
+C                HNAME - NAZWA ZE SCANNERA TWORZONEJ FUNKCJI
+C                FPLIST, FPLENG - INDEKS LISTY PAR. FORM. I JEJ DLUGOSC
+C                NDIM, NTYPE - TYP FUNKCJI
+C                NRESLT - OPIS ATRYBUTU RESULT
+C                NRFP - ROZROZNIENIE FUNKCJI - WARTOSC DLA GENERATORA KODU
+c                sl - adres prototypu obejmujacego
+C
+C             WERSJA Z DNIA:                19.01.82
+C               (DLA PROCEDURY INIT)
+C             DLUGOSC KODU:  157
+C..................................................................
+C
+      IMPLICIT INTEGER (A-Z)
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL #
+C
+C
+CDSW  DATA MAFPHEX1,MAFPHEX2 /Z0201,Z0401/
+      data mafhx1, mafhx2 / x'0201',x'0401'/
+
+
+cdsw  I = NBLSYS+10
+      i = sl+10
+C
+      IF (NTYPE .EQ. 0)    GOTO  100
+C-----FUNKCJA
+      IPROT = MGETM(10, 41) + 5
+      IPMEM(IPROT-5) = NRESLT
+      IPMEM(IPROT-4) =  NDIM
+      IPMEM(IPROT-3) = NTYPE
+      IPMEM(IPROT) = mafhx1
+      GOTO  200
+C-----PROCEDURA
+  100 IPROT = MGETM(7, 41) + 2
+      IPMEM(IPROT) = mafhx2
+C-----OBYDWIE RAZEM
+cdsw   200 IPMEM(IPROT-1) = NBLSYS
+  200 ipmem(iprot-1) = sl    
+      IPMEM(IPROT+1) = 1
+      IPMEM(IPROT+2) = NRFP
+      IPMEM(IPROT+3) = FPLIST
+      IPMEM(IPROT+4) = FPLENG
+      XX = INSERT(HNAME, IPMEM(I), 41)
+      IPMEM(XX+2) = IPROT
+      RETURN
+      END
+
+cdsw  new procedure
+
+      integer function mstacl ( hname, sl)
+      implicit integer (a-z)
+
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+
+      common /prefs/lprefs
+c  lprefs - ostatnio przydzielony numer w prefixset
+      
+      insys = .false.
+      prot = mgetm(33,41) + 7
+      ipmem(prot) = 3
+      ipmem(prot-1) = sl
+      ipmem(prot+9) = 0
+      xx = insert(hname, ipmem(sl+10), 41)
+      ipmem(xx+2) = prot
+c  ustawienie prefixset i prefixlist
+      i = mgetm(1,41)
+      ipmem(i) = prot
+      ipmem(prot+22) = i
+      ipmem(prot+23) = 1
+      call msetb(prot,2)
+      lprefs = lprefs+1
+      call msetb(prot,lprefs)
+      ipmem(prot-6) = lprefs        
+c inicjalizacja listy atrybutow
+      ipmem(prot+7 ) = prot+5
+      ipmem(prot+5) = nattr
+      mstacl = prot
+      insys = .true.
+      return
+      end
+	    
+      SUBROUTINE  MLSPP
+C-----------------------INICJUJE PROTOTYPY ANALIZY SEMANTYCZNEJ DLA
+C                       KLASY SYSPP
+C
+      IMPLICIT INTEGER (A-Z)
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+cdsw  DATA MLSPHEX1,MLSPHEX2,MLSPHEX3 /ZC007,ZC061,ZC051/
+c    #c007 --> -#3ff9, #c061 --> -#3f9f, #c051 --> -#3faf
+      data mlphx1, mlphx2, mlphx3 / -x'3ff9', -x'3f9f',-x'3faf' /
+CALL #
+C
+C----------POPRAWIENIE SLOW +3 I +4 W BLOKU SYSTEMOWYM
+C     +4 - JEST SYSPP
+      IPMEM(NBLSYS+4) = 1
+C     +3 - OSTATNIO UZYTY NUMER W SENSIE PREFIXSET
+      IPMEM(NBLSYS+3) = IPMEM(NBLSYS+3)+4
+C
+C **** UTWORZENIE KLASY SYSPP
+      SYSPP = MLINCL (2, 3, NBLSYS, NBLSYS)
+      IPMEM(NBLSYS+8) = SYSPP
+C **** UTWORZENIE KLASY PROCES
+      PPROC = MLINCL(2469, 4, SYSPP, SYSPP)
+C       --POPRAWIENIE NA COROUTINE
+      CALL  MSETB(PPROC, 0)
+      IPMEM(PPROC) = mlphx1
+C **** UTWORZENIE KLASY SLOWNIK
+      SLOW = MLINCL(1609, 5, SYSPP, PPROC)
+C **** UTWORZENIE KLASY SEMAFOR
+      SEM = MLINCL(2477, 6, SYSPP, SLOW)
+C
+C****** WNETRZE KLASY PROCES
+C     ----WAITN: FUNCTION: PROCES
+C       --LISTA PF
+      PFL = MGETM(1, 41)
+C       --PROTOTYP
+      PROT = MLINFP(2431, PFL, 1, 0, PPROC, PPROC, SEM)
+      PREV = PROT
+C       --OPIS PARAMETRU
+      PAR = MLPAR(0, PPROC, 2, mlphx2  , PROT)
+      IPMEM(PROT-5) = PAR
+      IPMEM(PFL) = PAR
+C     ----STOPAR: PROCEDURE(INPUT Z: SEMAFOR)
+C       --LISTA PF
+      PFL = MGETM(1, 41)
+C       --PROTOTYP
+      PROT = MLINFP(2437, PFL, 1, 0, 0, PPROC, PREV)
+      PREV = PROT
+C       --OPIS PF
+      IPMEM(PFL) = MLPAR(0, SEM, 2, mlphx3  , PROT)
+C     ----WAITP: FUNCTION(INPUT Y:PROCES): PROCES
+C       --LISTA PF
+      PFL = MGETM(2, 41)
+C       PROTOTYP
+      PROT = MLINFP(2443, PFL, 2, 0, PPROC, PPROC, PREV)
+      PREV = PROT
+C       --OPISY PF
+      IPMEM(PFL) = MLPAR(0, PPROC, 2, mlphx3  , PROT)
+      PAR = MLPAR(0, PPROC, 4, mlphx2  , PROT)
+      IPMEM(PFL+1) = PAR
+      IPMEM(PROT-5) = PAR
+C     ----STOPP: PROCEDURE
+      PROT = MLINFP(2449, 0, 0, 0, 0, PPROC, PREV)
+      PREV = PROT
+C     ----RESUMEP: PROCEDURE(INPUT X: PROCES)
+C       --LISTA PF
+      PFL = MGETM(1, 41)
+C       --PROTOTYP
+      DUPA = DUPA
+C BEZ TEJ DUPY FTS DAJE ZLY KOD WYNIKOWY
+      PROT = MLINFP(2457, PFL, 1, 0, 0, PPROC, PREV)
+      PREV = PROT
+C       --OPIS PF
+      IPMEM(PFL) = MLPAR(0, PPROC, 2, mlphx3  , PROT)
+C
+C ***** WNETRZE SLOWNIK (KLASA LINK JEST NIEWIDOCZNA!!!)
+C     ----AMEMBER: FUNCTION: PROCES
+C       --LISTA PF
+      PFL = MGETM (1, 41)
+C       --PROTOTYP
+      PROT = MLINFP(1325, PFL, 1, 0, PPROC, SLOW, PREV)
+      PREV = PROT
+C       --OPIS PF
+      PAR = MLPAR(0, PPROC, 2, mlphx2  , PROT)
+      IPMEM(PFL) = PAR
+      IPMEM(PROT-5) = PAR
+C     ----DELETE: PROCEDURE(INPUT X: PROCES)
+C       --LISTA PF
+      PFL = MGETM(1, 41)
+C       --PROTOTYP
+      PROT = MLINFP(2393, PFL, 1, 0, 0, SLOW, PREV)
+      PREV = PROT
+C       --OPIS PF
+      IPMEM(PFL) = MLPAR(0, PPROC, 3, Mlphx3  , PROT)
+C     ----MIN: FUNCTION: PROCES
+C       --LISTA PF
+      PFL =MGETM(1, 41)
+C       --PROTOTYP
+      PROT = MLINFP(835, PFL, 1, 0, PPROC, SLOW, PREV)
+      PREV = PROT
+C       --OPIS PF
+      PAR = MLPAR(0, PPROC, 2, MLphx2  , PROT)
+      IPMEM(PFL) = PAR
+      IPMEM(PROT-5) = PAR
+C     ----EMPTY: FUNCTION: BOOLEAN
+C       --LISTA PF
+      PFL = MGETM(1, 41)
+C       --PROTOTYP
+      PROT = MLINFP(1837, PFL, 1, 0, NRBOOL, SLOW, PREV)
+      PREV = PROT
+C       --OPIS PF
+      PAR = MLPAR(0, NRBOOL, 2,mlphx2   , PROT)
+      IPMEM(PFL) = PAR
+      IPMEM(PROT-5) = PAR
+C     ----INSERT: PROCEDURE(INPUT X: PROCES)
+C       --LISTA PF
+      PFL = MGETM(1, 41)
+C       --PROTOTYP
+      PROT = MLINFP(2405, PFL, 1, 0, 0, SLOW, PREV)
+      PREV = PROT
+C       --OPIS PF
+      IPMEM(PFL) = MLPAR(0, PPROC, 2, mlphx3  , PROT)
+C
+C ***** WNETRZE SEMAFOR
+C     ----UNLOCKP: PROCEDURE
+C       --PROTOTYP
+      PROT = MLINFP(2413, 0, 0, 0, 0, SEM, PREV)
+      PREV = PROT
+C     ----LOCKP: PROCEDURE
+C       --PROTOTYP
+      PROT = MLINFP(2419, 0, 0, 0, 0, SEM, PREV)
+      PREV = PROT
+C     ----UP:  PROCEDURE
+C       --PROTOTYP
+      PROT = MLINFP(2421, 0, 0, 0, 0, SEM, PREV)
+      PREV = PROT
+C     ----TSP: FUNCTION: BOOLEAN
+C       --LISTA PF
+      PFL = MGETM(1, 41)
+C       --PROTOTYP
+      PROT =MLINFP(2425, PFL, 1, 0, NRBOOL, SEM, PREV)
+C       --OPIS PF
+      PAR = MLPAR(0, NRBOOL, 2, mlphx2  , PROT)
+      IPMEM(PFL) = PAR
+      IPMEM(PROT-5) = PAR
+C
+C******I TO JUZ KONIEC INICJALIZACJI
+      RETURN
+      END
+      INTEGER FUNCTION  MLINCL(HNAME, PREFNR, SL, PREV)
+C---------------------INICJUJE PROTOTYPY KLAS BIBLIOTECZNYCH Z SYSPP
+C
+      IMPLICIT INTEGER (A-Z)
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+cdsw  DATA MLCLHEX1,MLCLHEX2,MLCLHEX3 /ZC003,ZA021,Z8000/
+c   #c003 --> -#3ffd, #a021 --> -#5fdf, #8000  --> undef
+      data mlchx1, mlchx2  /-x'3ffd', -x'5fdf' /
+      mlchx2 = ishft(X'0001',15)
+CALL #
+C
+      MLINCL = MGETM(33, 41)+7
+      PREFL = MGETM(1, 41)
+      IPMEM(PREFL) = MLINCL
+      IPMEM(MLINCL-6) = PREFNR
+      IPMEM(MLINCL-3) = 4
+      CALL  MSETB(MLINCL, PREFNR)
+      IPMEM(MLINCL-1) = SL
+      IPMEM(MLINCL) = mlchx1
+      IPMEM(MLINCL+1) = mlchx2
+      IPMEM(MLINCL+9) = mlchx3
+      IPMEM(MLINCL+22) = PREFL
+      IPMEM(MLINCL+23) = 1
+C----DOLACZENIE DO LISTY NEXTDECL
+      IPMEM(PREV+2) = MLINCL
+      XX = INSERT(HNAME, IPMEM(SL+10), 41)
+      IPMEM(XX+2) = MLINCL
+      RETURN
+      END
+      INTEGER FUNCTION  MLINFP (HNAME, FPLIST, FPLENG, NDIM, NTYPE,
+     X                            SL, PREV)
+C-----------------------INICJUJE PROTOTYPY FUNKCJI I PROCEDUR Z SYSPP
+C
+      IMPLICIT INTEGER (A-Z)
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+cdsw  DATA MLFPHEX1,MLFPHEX2/Z0201,Z0401/
+      data mlfhx1, mlfhx2/x'0201',x'0401'/
+CALL #
+C
+      I = SL+10
+      IF (NTYPE .EQ. 0)    GOTO  100
+C-----FUNCKJA
+      MLINFP = MGETM(29, 41)+5
+      IPMEM(MLINFP-4) = NDIM
+      IPMEM(MLINFP-3) = NTYPE
+C     ---OPIS ATRYBUTU RESULT POWINIEN BYC WSTAWIONY NA ZEWNATRZ
+      IPMEM(MLINFP) = mlfhx1
+      GOTO  200
+C-----PROCEDURA
+  100 MLINFP = MGETM(26, 41)+2
+      IPMEM(MLINFP) = mlfhx2
+C-----OBYDWIE
+  200 IPMEM(MLINFP-1) = SL
+      IPMEM(MLINFP+1) = 1
+      IPMEM(MLINFP+3) = FPLIST
+      IPMEM(MLINFP+4) = FPLENG
+C----DOLACZENIE DO NEXTDECL
+      IPMEM(PREV+2) = MLINFP
+      XX = INSERT(HNAME, IPMEM(I), 41)
+      IPMEM(XX+2) = MLINFP
+      RETURN
+      END
+      INTEGER FUNCTION  MLPAR  (NDIM, NTYPE, OFF, ZERWRD, SL)
+C----------------WPROWADZA OPIS PARAMETRU FORMALNEGO WRAZ Z OFFSETEM
+C
+      IMPLICIT INTEGER (A-Z)
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL #
+C
+      MLPAR = MGETM(6, 41)+4
+      IPMEM(MLPAR-4) = NDIM
+      IPMEM(MLPAR-3) = NTYPE
+      IPMEM(MLPAR-1) = SL
+      IPMEM(MLPAR) = ZERWRD
+      IPMEM(MLPAR+1) = OFF
+      RETURN
+      END
+      SUBROUTINE  TORD (PRNR)
+C--------------PROCEDURA PORZADKUJACA TYPY KLASOWE DEKLAROWANE W PROTO-
+C             TYPIE O ADRESIE  PRNR . SORTOWANIE TOPOLOGICZNE ODBYWA SIE
+C             ZE WZGLEDU NA PREFIKSOWANIE.
+C             WYJSCIEM Z PROCEDURY JEST UPORZADKOWANA (W PROTOTYPIE  PRNR)
+C             LISTA TYPOW W KOLEJNOSCI OBROBKI DEKLARACJI. EWENTUALNE CYKLE
+C             SA ROZERWANE.
+C          SYGNALIZOWANY BLAD:
+C             399 - TYPY KLASOWE TWORZA CYKL ZE WZGLEDU NA PREFIKSOWANIE
+C                       (PROCEDURA TSORT)
+C             398 - PREFIKS I TYP PREFIKSOWANY JEST TEN SAM
+C
+C-----------------------------------------------------------------------------
+C             POMOCNICZE STRUKTURY DANYCH
+C
+C     W CZASIE TWORZENIA GRAFU DO SORTOWANIA UZYWANA JEST LOKALNA TABLICA
+C     HASH'U  THASH. ELEMENT LISTY HASH'U BEDACY JEDNOCZESNIE ELEMENTEM
+C     DO SORTOWANIA MA NASTEPUJACA BUDOWE:
+C     --> 0 - NAZWA MODULU
+C        +1 - LICZNIK ODWOLAN W CZSIE SORTOWANIA
+C        +2 - POCZATEK LISTY NASTEPNIKOW, TZN. ELEMENTOW PREFIKSOWANYCH
+C                 PRZEZ DANA KLASE
+C        +3 - NASTEPNY ELEMENT W LISCIE HASH-U
+C             W CZASIE SORTOWANIA - FLAGA "PROCESSED"= 1 GDY ELEMENT JEST
+C             JUZ WSORTOWANY
+C        +4 - NUMER PROTOTYPU W SLOWNIKU  ISDICT,
+C              0 - GDY NAZWA OPISUJE PROTOTYP NIEZADEKLAROWANY W  PRNR
+C              -1 - GDY TYP DEKLAROWANY BYL WIELOKROTNIE
+C        +5 - NEXTZERO - INDEKS NASTEPNEGO ELEMENTU Z ZEROWYM LICZNIKIEM
+C             PO WSORTOWANIU - INDEKS ELEMENTU NASTEPNEGO W UTWORZONYM
+C             PORZADKU LINIOWYM
+C        +6 - INDEKS NASTEPNEGO ELEMENTU W LISCIE DO SORTOWANIA
+C             (UZYWANY DO WYKRYCIA CYKLI)
+C        +7 - ELEMENT DO SORTOWANIA ODPOWIADAJACY BEZPOSREDNIEMU
+C             PREFIKSOWI (UZYWANY PRZY ROZRYWANIU CYKLI)
+C
+C     ELEMENT LISTY NASTEPNIKOW (WSKAZYWANEJ PRZEZ SLOWO +2) MA POSTAC
+C     --> 0 - ELEMENT DO SORTOWANIA ODPOWIADAJACY TYPOWI PREFIKSOWANEMU,
+C             0 - GDY TEN NASTEPNIK ZOSTAL USUNIETY (ROZERWANY CYKL)
+C        +1 - NASTEPNY ELEMENT LISTY
+C
+C     ELEMENTY WIELOKROTNIE DEKLAROWANE TWORZA POMOCNICZA LISTE WSKAZY-
+C     WANA PRZEZ ZMIENNA  ELIST POSTACI:
+C     --> 0 - NUMER PROTOTYPU W SLOWNIKU ISDICT
+C        +1 - NASTEPNY ELEMENT LISTY
+C
+C
+C     TE STRUKTURY PRZECHOWYWANE SA W  IPMEM ZA CZESCIA PRZEZNACZONA
+C     NA PROROTYPY SYSTEMOWE. REZERWACJA PAMIECI JEST WYKONYWANA PRZEZ
+C     PROCEDURE  MGETM .
+C
+C-----------------------------------------------------------------------------
+C
+C
+C
+C             OPIS W DOKUMENTACJI:          D.II.4.1
+C             WERSJA Z DNIA:                19.01.82
+C             DLUGOSC KODU:        220
+C..........................................................................
+C
+      IMPLICIT INTEGER (A-Z)
+C
+CALL STREAM
+      LOGICAL  ERRFLG
+      COMMON /STREAM/  ERRFLG, LINE, IBUF2(265), IBUF3(7),JUNK(260)
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL TC
+      COMMON /TC/ SLIST, ELIST, SNUMB, ILT, ZFIRST, INORD, OUTORD
+CALL #
+C.............................................................................
+C             WSTEPNE ZBADANIE PROTOTYPU  PRNR
+C     SORTOWANIE NIE JEST WYKONYWANE, GDY LISTA TYPOW ZAWIERA MNIEJ NIZ
+C     DWA ELEMENTY
+C
+      ILT = IPMEM(PRNR+5)
+      IF (ILT .EQ. 0)    RETURN
+      IF ( IPMEM(ILT+1) .EQ. 0)    GOTO  300
+C
+C.............................................................................
+C
+C INICJALIZACJA ZMIENNYCH
+      SLIST = 0
+      ELIST = 0
+      SNUMB = 0
+      OLPML = LPML
+      INORD = MGETM(8,0)
+      OUTORD = INORD
+      ZFIRST = 0
+C
+C*******************************************
+C           UTWORZENIE GRAFU POWIAZAN ORAZ LIST TYPOW DO SORTOWANIA
+C
+      CALL  TGRAPH
+C
+C*******************************************
+C           SORTOWANIE TOPOLOGICZNE
+C
+      IF (SNUMB .EQ. 0)    GOTO  200
+C        --LISTA DO SORTOWANIA JEST PUSTA
+C
+      CALL  TZLINK
+C        -- LACZENIE W LISTE ELEMENTOW Z ZEROWYM LICZNIKIEM
+C
+  100 CALL  TSORT
+      IF (SNUMB .EQ. 0)    GOTO  200
+C        -- GDY SNUMB JEST ROZNE OD ZERA, TO ISTNIEJE CYKL. WOWCZAS
+C        ROZERWANIE CYKLU I MODYFIKACJA GRAFU ORAZ LISTY ELEMENTOW
+C        Z ZEROWYM LICZNIKIEM I PONOWNE SORTOWANIE
+C
+      CALL  TSPLIT
+      GOTO  100
+C
+C********************************************
+C           ODTWORZENIE LISTY TYPOW W KOLEJNOSCI DO OBROBKI
+C           DEKLARACJI
+C
+  200 CALL  TORDER(PRNR)
+      LPML = OLPML
+      RETURN
+C
+C************************************************
+C     SPRAWDZENIE, CZY TYP DO SORTOWANIA NIE JEST PREFIKSOWANY
+C     PRZEZ SAMEGO SIEBIE
+  300 ILT = IPMEM(ILT)
+C          ILT - NUMER W ISDICT PROTOTYPU SORTOWANEGO
+      ILT = IPMEM(ILT)
+C             ILT - PROTOTYP SORTOWANY
+      IF ( IPMEM(ILT+2) .EQ. NEMPTY)    RETURN
+C           PROTOTYP NIE JEST PREFIKSOWANY - POWROT
+      NAME = IPMEM(ILT+10)
+      IF ( NAME .NE. IPMEM(ILT+2) )    RETURN
+C         NAZWY SA ROZNE - POWROT
+C     ...SYGNALIZACJA BLEDU
+      LINE = IPMEM(ILT+9)
+      CALL  MERR(398, NAME)
+      IPMEM(ILT+2) = NEMPTY
+      IPMEM(ILT) = 7
+C           ZAMARKOWANIE USZKODZONEJ LISTY PARAMETROW
+      RETURN
+      END
+      SUBROUTINE  TGRAPH
+C--------------UTWORZENIE GRAFU POWIAZAN, LIST TYPOW DO SORTOWANIA
+C             ORAZ WIELOKROTNIE DEKLAROWANYCH
+C
+C             OPIS W DOKUMENTACJI:             D.II.4.2
+C             WERSJA Z DNIA:                   19.01.82
+C             DLUGOSC KODU:        590
+C......................................................................
+C
+      IMPLICIT INTEGER (A-Z)
+cdsw  INTEGER THASH(8)
+      dimension thash(8)
+C             POMOCNICZA TABLICA HASH-U
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL TC
+      COMMON /TC/ SLIST, ELIST, SNUMB, ILT, ZFIRST, INORD, OUTORD
+CALL STREAM
+      LOGICAL  ERRFLG
+      COMMON /STREAM/  ERRFLG, LINE, IBUF2(265), IBUF3(7),JUNK(260)
+CALL #
+C     ZNACZENIE ZMIENNYCH
+C       ILT - ELEMENT LISTY DEKLAROWANYCH TYPOW
+C       DICTN - NUMER PROTOTYPU W SLOWNIKU ISDICT
+C       PRAD - ADRES PROTOTYPU W  IPMEM
+C       NAME - NAZWA TYPU
+C       IHT - ELEMENT LISTY HASH-U
+C
+C
+      DO  10 I=1,8
+	THASH(I) = 0
+   10 CONTINUE
+C
+C*****************************************************************************
+C             PRZETWARZANIE ELEMENTU  ILT  Z LISTY TYPOW
+C
+ 1000 DICTN = IPMEM(ILT)
+      PRAD = IPMEM(DICTN)
+      NAME = IPMEM(PRAD+10)
+      IF (NAME .EQ. NEMPTY)    GOTO  2500
+C             NAZWA PUSTA - SKOK DO WPISANIA TYPU DO LISTY TYPOW ZLE
+C             ZADEKLAROWANYCH
+C---------------------------------------------------------------------------
+C     SPRAWDZENIE, CZY TYP NIE JEST PREFIKSOWANY SAM SOBA
+      IF ( NAME .NE. IPMEM(PRAD+2) )    GOTO  1050
+      LINE = IPMEM(PRAD+9)
+	CALL  MERR(398, NAME)
+	IPMEM(PRAD+2) = NEMPTY
+	IPMEM(PRAD) = 7
+ 1050 CONTINUE
+C-----------------------------------------------------------------------------
+C     ODSZUKANIE NAZWY
+      IHT = MEMBER(NAME, THASH)
+      IF (IHT .EQ. 0)    GOTO  1100
+C.....TU - NAZWA JUZ WYSTEPUJE W LISCIE HASH-U
+C     SPRAWDZENIE ,CZY POPRZEDNIE WYSTAPIENIE NIE BYLO DEKLARACJA NAZWY,
+C     JESLI TAK -TO BLAD
+      IF ( IPMEM(IHT+4) .NE. 0)    GOTO  2000
+C             BYLA WCZESNIEJ DEKLAROWANA, SKOK DO ZLE ZADEKLAROWANEGO TYPU
+      GOTO  1200
+C
+C-----------------------------------------------------------------------------
+C     TWORZENIE NOWEGO ELEMENTU LISTY DO SORTOWANIA
+ 1100 IHT = MGETM(8,0)
+      IPMEM(IHT) = NAME
+      I = IAND (ISHFT(NAME,-1), 7) + 1
+      IPMEM(IHT+3) = THASH(I)
+      THASH(I) = IHT
+C     WLACZENIE DO LISTY TYPOW DO SORTOWANIA
+      IPMEM(IHT+6) = SLIST
+      SLIST = IHT
+      SNUMB = SNUMB+1
+C     WPISANIE NUMERU PROTOTYPU
+ 1200 IPMEM(IHT+4) = DICTN
+C
+C-----------------------------------------------------------------------------
+C     SPRAWDZENIE PREFIKSOWANIA
+C             INP - NAZWA BEZPOSREDNIEGO PREFIKSU
+      INP = IPMEM(PRAD+2)
+      IF (INP .EQ. 0)    GOTO  5000
+C             TYP NIE JEST PREFIKSOWANY - SKOK DO POBRANIA NASTEPNEGO
+C             ELEMENTU LISTY TYPOW
+C-----------------------------------------------------------------------------
+C     WYSZUKANIE NAZWY PREFIKSU
+C             PRAD - ELEMENT DO SORTOWANIA ODPOWIADAJACY PREFIKSOWI
+      PRAD = MEMBER (INP, THASH)
+      IF (PRAD .NE. 0)    GOTO  1300
+C             SKOK, GDY ELEMENT ODPOWIADAJACY PREFIKSOWI JEST JUZ
+C             W LISCIE DO SORTOWANIA
+C     WPROWADZENIE NOWEGO OPISU
+      PRAD = MGETM(8, 0)
+      IPMEM(PRAD) = INP
+      I = IAND (ISHFT(INP,-1), 7) + 1
+      IPMEM(PRAD+3) = THASH(I)
+      THASH(I) = PRAD
+      IPMEM(PRAD+6) = SLIST
+      SLIST = PRAD
+      SNUMB = SNUMB + 1
+C--------UTWORZENIE POWIAZANIA
+ 1300 I = MGETM(2,0)
+      IPMEM(I) = IHT
+      IPMEM(I+1) = IPMEM(PRAD+2)
+      IPMEM(PRAD+2) = I
+      IPMEM(IHT+7) = PRAD
+      IPMEM(IHT+1) = 1
+C-------PRZEJSCIE DO POBIERANIA NASTEPNEGO ELEMENTU LISTY TYPOW
+      GOTO  5000
+C
+C-----------------------------------------------------------------------------
+C     TYPY ZLE ZADEKLAROWANE
+C
+C------TYPY DEKLAROWANE WIELOKROTNIE
+ 2000 IF ( IPMEM(IHT+4) .EQ. -1)    GOTO  2500
+C-------PRZESUNIECIE TYPU WCZESNIEJ DEKLAROWANEGO DO LISTY TYPOW
+C     ZLE ZADEKLAROWANYCH
+      INP = IHT
+      I = IPMEM(INP+4)
+      IPMEM(INP+4) = -1
+      IHT = MGETM(2,0)
+      IPMEM(IHT) = I
+      IPMEM(IHT+1) = ELIST
+      ELIST = IHT
+C-------USUNIECIE KRAWEDZI W PREFIKSIE TEGO TYPU
+      IHT = IPMEM(INP+7)
+C          IHT - GDY ROZNE OD ZERA JEST OPISEM ELEMENTU ODPOWIADAJACEGO
+C         PREFIKSOWI
+      IF (IHT .EQ. 0)    GOTO  2500
+C.....USUNIECIE KRAWEDZI W LISCIE NASTEPNIKOW PREFIKSU
+      IHT = IPMEM(IHT+2)
+C          IHT - ELEMENT LISTY NASTEPNIKOW
+ 2100 IF (IHT .EQ. 0)    GOTO  2500
+      IF ( IPMEM(IHT) .EQ. INP)    GOTO  2200
+C         TO BYL ELEMENT ODPOWIADAJACY POLACZENIU
+      IHT = IPMEM(IHT+1)
+      GOTO  2100
+ 2200 IPMEM(IHT) = 0
+      IPMEM(INP+1) = 0
+C------DOLACZENIE AKTUALNEGO TYPU DO LISTY TYPOW ZLE ADEKLAROWANYCH
+ 2500 IHT = MGETM(2,0)
+      IPMEM(IHT) = DICTN
+      IPMEM(IHT+1) = ELIST
+      ELIST = IHT
+C-----------------------------------------------------------------------------
+C     POBRANIE NASTEPNEGO ELEMENTU LISTY TYPOW
+ 5000 ILT = IPMEM(ILT+1)
+      IF (ILT .NE. 0)    GOTO  1000
+C*****************************************************************************
+      RETURN
+      END
+      SUBROUTINE  TZLINK
+C--------------LACZENIE W LISTE ROZPOCZYNAJACA SIE OD ZFIRST
+C             ELEMENTOW Z ZEROWYM LICZNIKIEM.
+C             ///PRZY OKAZJI USUNIECIE W PROTOTYPACH PREFIKSOW ODPOWIADAJACYCH
+C             TYPOM WIELOKROTNIE DEKLAROWANYM
+C
+C             OPIS W DOKUMENTACJI:          D.II.4.3
+C             WERSJA Z DNIA:                19.01.82
+C             DLUGOSC KODU:        135
+C........................................................................
+C
+      IMPLICIT INTEGER (A-Z)
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL TC
+      COMMON /TC/ SLIST, ELIST, SNUMB, ILT, ZFIRST, INORD, OUTORD
+CALL #
+C
+      I = SLIST
+C*****************************************************************************
+ 1000 IPR = IPMEM(I+7)
+      IF ( IPMEM(IPR+4) .NE. -1)    GOTO  1100
+C--------USUNIECIE PREFIKSU Z PROTOTYPU , GDY PREFIKS
+C     BYL TYPEM ZLE ZADEKLAROWANYM
+      IPR = IPMEM(I+4)
+      IPR = IPMEM(IPR)
+      IPMEM(IPR+2) = NEMPTY
+      IPMEM(IPR) = 7
+C         ZAMARKOWANIE BLEDNEJ LISTY PARAMETROW
+      IPMEM(I+1) = 0
+ 1100 IF (IPMEM(I+1) .NE. 0)    GOTO  1500
+      IPMEM(I+5) = ZFIRST
+      ZFIRST = I
+ 1500 IPMEM(I+3) = 0
+C             USTAWIENIE FLAGI "PROCESSED"
+C------POBRANIE NASTEPNEGO ELEMENTU LISTY DO SORTOWANIA
+      I = IPMEM(I+6)
+      IF (I .NE. 0)    GOTO  1000
+C*****************************************************************************
+      RETURN
+      END
+      SUBROUTINE  TSORT
+C--------------SORTOWANIE TOPOLOGICZNE - CZESC WLASCIWA
+C
+C             OPIS W DOKUMENTACJI:           D.II.4.4
+C             WERSJA Z DNIA:                 19.01.82
+C             DLUGOSC KODU:        146
+C...................................................................
+C
+      IMPLICIT INTEGER (A-Z)
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL TC
+      COMMON /TC/ SLIST, ELIST, SNUMB, ILT, ZFIRST, INORD, OUTORD
+CALL #
+C
+C     ILT - ROZPATRYWANY ELEMENT Z ZEROWYM LICZNIKIEM
+ 1000 ILT = ZFIRST
+      IF (ILT .EQ. 0)    RETURN
+      ZFIRST = IPMEM(ILT + 5)
+      IPMEM(OUTORD+5) = ILT
+      OUTORD = ILT
+      SNUMB = SNUMB - 1
+C     USTAWIENIE FLAGI "PROCESSED"
+      IPMEM(ILT+3) = 1
+C     ZMNIEJSZENIE LICZNIKOW ELEMENTOM PREFIKSOWANYM
+C     PRZEZ ILT
+C     ....SPRAWDZENIE, CZY SORTOWANY PROTOTYP NIE JEST PROTOTYPEM
+C     ZLYCH DEKLARACJI - DLA NIEGO NIE MA ELEMENTOW PREFIKSOWANYCH
+      IF (IPMEM(ILT+4) .EQ. -1)    GOTO  1500
+C     INE - ELEMENT LISTY NASTEPNIKOW
+      INE = IPMEM(ILT+2)
+ 1100 IF (INE .EQ. 0)    GOTO  1500
+	I = IPMEM(INE)
+	IF (I .EQ. 0)    GOTO  1200
+C             SKOK, GDY POLACZENIE JEST OMINIETE
+C     I -ELEMENT ODPOWIADAJACY TYPOWI PREFIKSOWANEMU
+	IPMEM(I+1) = 0
+	IPMEM(I+5) = ZFIRST
+	ZFIRST = I
+C     POBRANIE NASTEPNEGO ELEMENTU LISTY NASTEPNIKOW
+ 1200 INE = IPMEM(INE+1)
+      GOTO  1100
+C-------POBRANIE NASTEPNEGO ELEMENTUU DO SORTOWANIA
+ 1500 GOTO  1000
+      END
+      SUBROUTINE  TSPLIT
+C--------------PROCEDURA ROZRYWANIA CYKLI W LISCIE TYPOW DO
+C             PRZETWORZENIA.
+C             ZNAJDUJE TYP NAJWCZESNIEJ DEKLAROWANY, USUWA MU PREFIKS
+C             I MODYFIKUJE GRAF DO SORTOWANIA
+C     SYGNALIZOWANY BLAD:
+C             399 - WYSTAPIENIE CYKLU W PREFIKSOWANIU
+C
+C             OPIS W DOKUMENTACJI:           D.II.4.5
+C             WERSJA Z DNIA:                 19.01.82
+C             DLUGOSC KODU:        287
+C..................................................................
+C
+      IMPLICIT INTEGER (A-Z)
+C
+CALL STREAM
+      LOGICAL  ERRFLG
+      COMMON /STREAM/  ERRFLG, LINE, IBUF2(265), IBUF3(7),JUNK(260)
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL TC
+      COMMON /TC/ SLIST, ELIST, SNUMB, ILT, ZFIRST, INORD, OUTORD
+CALL #
+C
+C     ILT - ELEMENT LISTY DO SORTOWANIA ODPOWIADAJACY NAJWCZESNIEJ
+C             DEKLAROWANEMU PROTOTYPOWI
+C     LMIN - NUMER NAJWCZESNIEJSZEJ LINII
+C     IE - AKTUALNY ELEMENT LISTY DO SORTOWANIA
+C
+      IE = SLIST
+      LMIN = 32767
+C         NAJWIEKSZA STALA CALKOWITA
+C*****************************************************************************
+ 1000 CONTINUE
+      IF (IPMEM(IE+3) .EQ. 1)    GOTO  1500
+C             SKOK, GDY TEN TYP JEST JUZ PRZETWORZONY
+      IPR = IPMEM(IE+4)
+      IPR = IPMEM(IPR)
+C     IPR - PROTOTYP TYPU ODPOWIADAJACEGO  IE
+      LINE = IPMEM(IPR+9)
+      IF (LINE .GT. LMIN)    GOTO  1500
+C....TU POTENCJALNY KANDYDAT NA USUNIECIE CYKLU
+C     SPRAWDZENIE, CZY TEN ELEMENT WYSTEPUJE W CYKLU
+	ILOOP = IE
+C       MARKOWANIE CYKLU
+ 1100   IPMEM(ILOOP+3) = -1
+	ILOOP = IPMEM(ILOOP+7)
+C           TO JEST PREFIKS ILOOP
+	IF (IPMEM(ILOOP+3) .NE. -1)    GOTO  1100
+	IF (ILOOP .NE. IE)    GOTO  1200
+C     --WYSTAPIL W CYKLU
+	LMIN = LINE
+	ILT = IE
+C     --PRZYWROCENIE STAREGO MARKOWANIA CYKLU
+ 1200   ILOOP = IE
+ 1300   IPMEM(ILOOP+3) = 0
+	ILOOP = IPMEM(ILOOP+7)
+	IF (IPMEM(ILOOP+3) .NE. 0)    GOTO  1300
+C---------POBRANIE NASTEPNEGO ELEMENTU LISTY DO SORTOWANIA
+ 1500 IE = IPMEM(IE+6)
+      IF (IE .NE. 0)    GOTO  1000
+C
+C*****************************************************************************
+C     ILT JEST PROTOTYPEM TYPU NAJWCZESNIEJ DEKLAROWANEGO
+      IPR = IPMEM(ILT+4)
+      IPR = IPMEM(IPR)
+      NAME = IPMEM(IPR+10)
+      LINE = LMIN
+C     ...SYGNALIZACJA BLEDU
+      CALL  MERR(399, NAME)
+C......USUNIECIE PREFIKSU
+      IPMEM(IPR+2) = 0
+C......"USZKODZENIE" LISTY PARAMETROW
+      IPMEM(IPR) = 7
+C.....WSTAWIENIE DO LISTY ELEMENTOW Z ZEROWYM LICZNIKIEM
+      ZFIRST = ILT
+C------USUNIECIE POWIAZANIA Z PREFIKSEM
+      IPR = IPMEM(ILT+7)
+C             IPR - ELEMENT LISTY DO SORTOWANIA ODPOWIADAJACY PREFIKSOWI
+      IPR = IPMEM(IPR+2)
+C             LISTA NASTEPNIKOW PREFIKSU
+ 2000 IF (IPMEM(IPR) .EQ. ILT)    GOTO  2100
+	IPR = IPMEM(IPR+1)
+      GOTO  2000
+ 2100 IPMEM(IPR) = 0
+      RETURN
+      END
+      SUBROUTINE  TORDER (PRNR)
+C------------WPISANIE DO LISTY TYPOW PRNR TYPOW TAM DEKLAROWANYCH
+C             W KOLEJNOSCI OBROBKI DEKLARACJI
+C
+C             OPIS W DOKUMENTACJI:         D.II.4.6
+C             WERSJA Z DNIA:               19.01.82
+C             DLUGOSC KODU:        117
+C.........................................................................
+C
+C
+      IMPLICIT INTEGER(A-Z)
+C
+CALL BLANK
+      LOGICAL  INSYS, OWN
+      COMMON /BLANK/ COM(278),
+     X        LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X        NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X        NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X        LOCAL , OWN   , OBJECT,
+     X        IPMEM(5000)
+CALL TC
+      COMMON /TC/ SLIST, ELIST, SNUMB, ILT, ZFIRST, INORD, OUTORD
+CALL #
+C
+      ILT = IPMEM(PRNR+5)
+C       ILT - ELEMENT LISTY TYPOW DEKLAROWANYCH
+C
+C*****************************************************************************
+C     WPISANIE TYPOW Z LISTY INORD (NA POCZATKU JEST STRAZNIK)
+ 1000 INORD = IPMEM(INORD+5)
+      IF (INORD .EQ. 0)    GOTO  2000
+      IF (IPMEM(INORD+4) .LE. 0)    GOTO  1000
+C             -OMINIECIE TYPOW NIELOKALNYCH
+      IPMEM(ILT) = IPMEM(INORD+4)
+      ILT = IPMEM(ILT+1)
+      GOTO  1000
+C*****************************************************************************
+C     WPISANIE TYPOW Z LISTY TYPOW ZLE ZADEKLAROWANYCH
+ 2000 IF (ELIST .EQ. 0)    RETURN
+      IPMEM(ILT) = IPMEM(ELIST)
+      ELIST = IPMEM(ELIST+1)
+      ILT = IPMEM(ILT+1)
+      GOTO  2000
+      END
+
+

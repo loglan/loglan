@@ -1,0 +1,1546 @@
+
+
+
+
+
+
+
+
+
+
+
+                          IIUWGRAF
+
+       biblioteczka podstawowych procedur graficznych
+
+    moze wspolpracowac z kompilatorami firmy Microsoft:
+
+               Fortran 77 wersja 3.31 i 4.00
+                     Pascal wersja 3.31
+
+                            oraz
+                              
+                  C (Lattice) wersja 3.10
+                   Aztec C  wersja 3.20d
+
+                              
+
+                       dla IBM PC/XT
+
+  obsluguje karty IBM color/graphics, Hercules II oraz EGA
+
+
+
+
+
+
+                 wersja 2.2, grudzien 1987
+
+
+
+
+
+
+
+Autorzy:
+
+     Piotr Carlson
+     Miroslawa Milkowska -    procedury poziomu 1
+
+     Janina Jankowska
+     Michal Jankowski    -    procedury poziomu 2
+
+
+Osrodek Obliczeniowy Instytutu Informatyki
+Uniwersytet Warszawski
+
+
+                                                            2
+
+
+
+Spis tresci
+
+
+Informacje ogolne                                       3
+Procedury poziomu 1                                     4
+Procedury ustawiania trybu                              5
+Procedury sterujace kolorami                            8
+Procedury ustawiania pozycji                           11
+Procedury obslugujace punkty                           12
+Procedury rysowania linii                              13
+Procedury operujace na fragmentach ekranu              15
+Procedury wejscia/wyjscia dla pojedynczych znakow      16
+Procedury wejscia/wyjscia dla linii                    18
+Procedury wejscia/wyjscia dla okienek                  19
+Procedury poziomu 2                                    20
+Informacje dodatkowe                                   22
+Procedury dodatkowe                                    22
+
+
+
+Dodatki
+
+A. Uzycie IIUWGRAFu z FORTRANem 77                     23
+B. Uzycie IIUWGRAFu z Pascalem                         24
+C. Uzycie IIUWGRAFu z Lattice C                        25
+D. Uzycie IIUWGRAFu z LOGLANem                         26
+E. Wykaz specyfikacji procedur IIUWGRAFu               27
+F. Wartosci kodow klawiszy specjalnych                 29
+G. FEDIT - prosty program do edycji kroju znakow       30
+H. Zmiany IIUWGRAFu w stosunku do poprzednich wersji   33
+
+
+
+                                                            3
+
+
+
+Informacje ogolne
+
+         
+
+         Rysunek jest tworzony na ekranie monitora za pomoca
+szeregu wywolan procedur bibliotecznych IIUWGRAF. Modyfikuja
+one zawartosc bufora mapy bitowej, ktora jest zwykle
+bezposrednio wyswietlana na ekranie. Zmiany te sa wtedy
+widoczne natychmiast. Umiejscowienie bufora roboczego moze
+byc jednak zmienione, tak aby byl on zwiazany z obszarem
+pamieci dostarczonym przez uzytkownika. W tym przypadku
+zmiany jego zawartosci oczywiscie nie sa wyswietlane, a
+nawet przestawienie monitora w tryb graficzny nie jest
+konieczne. Rysunek moze byc wtedy skonstruowany w pamieci,
+bez wyswietlania, przechowany na dysku w postaci binarnej i
+odtworzony pozniej na ekranie. Omowiony tryb pracy jest
+mozliwy jednak tylko dla karty Hercules II oraz karty IBM.
+     W opisie procedur slowo ekran, tam gdzie mowa o jego
+zawartosci, nalezy rozumiec wlasnie jako bufor roboczy.
+
+         Karty Hercules II oraz EGA daja dodatkowa mozliwosc
+blyskawicznego przelaczania pomiedzy dwiema
+rownouprawnionymi stronami graficznymi.
+
+         W wersji podstawowej karta graficzna EGA posiada
+64K bajty pamieci. Pamiec ta moze byc zwiekszona do 128K
+oraz 256K bajtow. Opisane ponizej procedury graficzne
+dotycza w zasadzie karty EGA z pelna pamiecia 256K bajtow.
+Tylko w tej wersji karty mozna bowiem uzywac 16 kolorow
+( z 64 istniejacych ) oraz dwoch stron graficznych. W obu
+wersjach z mniejsza pamiecia istnieje tylko jedna strona
+graficzna, a ponadto w wersji podstawowej uzytkownik ma
+mozliwosc korzystania tylko z 4 kolorow (z 16 istniejacych).
+
+         Dostarczone sa cztery zestawy oddzielnych bibliotek
+IIUWGRAF, kazda dla innego rodzaju ekranu:
+
+     HGCMSF   i  HGCMSF4      dla karty Hercules
+     MGCMSF   i  MGCMSF4      dla karty IBM color/graphics
+     MGC64MSF i  MGC64MF4     dla karty IBM w trybie mono
+     EGAMSF   i  EGAMSF4      dla karty EGA
+
+         Biblioteki HGCMSF, MGCMSF, MGC64MSF i EGAMSF zgodne
+sa z konwencjami Fortranu ( wersja 3.31 ) i Pascala firmy
+Microsoft. Natomiast biblioteki HGCMSF4, MGCMSF4, MGC64MF4 i
+EGAMSF4 sa zgodne z konwencjami Fortranu ( wersja 4.00 )
+firmy Microsoft. Dodatkowo, kazda biblioteka moze byc
+dostarczona w konwencji Lattice C, oddzielnie dla czterech
+modeli kodu  S, P, D i L.
+
+         Programy uzytkowe komunikuja sie z IIUWGRAFem na
+dwoch poziomach:
+
+          poziom 1  - zarzadzanie ekranem na poziomie pixli,
+przy uzyciu prawdziwych wspolrzednych na ekranie,
+
+          poziom 2  - rysowanie punktow i linii we
+wspolrzednych  abstrakcyjnych.
+
+
+
+                                                            4
+
+
+
+Procedury poziomu 1
+
+         Wszystkie parametry bez podanej explicite
+specyfikacji maja typ integer. Wszystkie parametry calkowite
+powinny miec wartosci 16-bitowe (integer*2 w Fortranie,
+integer w Pascalu, int w C)
+
+
+Zakresy wspolrzednych ekranu:
+
+     0 <= ix <= 719
+     0 <= iy <= 347      dla karty Hercules
+
+     0 <= ix <= 319
+     0 <= iy <= 199      dla karty IBM color/graphics
+
+     0 <= ix <= 639
+     0 <= iy <= 199      dla karty IBM color/graphics
+                         w trybie mono
+     0 <= ix <= 639
+     0 <= iy <= 349      dla karty EGA
+
+
+
+          (0,0)-----------> (ix,0)
+            |
+            |
+            |
+            V
+          (0,iy)
+
+
+
+                                                            5
+
+
+
+Procedury ustawiania trybu
+
+GRON(i)
+
+         Procedura GRON ustawia monitor w graficznym trybie
+pracy, czyszczac zawartosc jego ekranu, ktory jednoczesnie
+staje sie buforem roboczym. Parametr i ma znaczenie jedynie
+dla karty IBM w trybie 320*200: wartosc 1 wybiera normalne
+kolory, wartosc 0 - kolory zmodyfikowane do pracy na
+monitorach monochromatycznych. Dla kart Hercules, EGA oraz
+karty IBM w trybie 640*200 wartosc parametru i jest
+ignorowana. Przy przelaczaniu karty Hercules z trybu
+tekstowego na graficzny i odwrotnie stosowane jest
+programowo opoznienie ok. 3 sekund. Tryb karty IBM ustawiany
+jest wprost, bez pomocy przerwania 10H, tak aby mozliwa byla
+jednoczesna praca na monitorze kolorowym w trybie graficznym
+z praca na monitorze monochromatycznym w trybie tekstowym.
+Konsekwencja tego rozwiazania jest to, ze nie mozna
+korzystac z komendy GRAPHICS. Natomiast tryb karty EGA jest
+ustawiany wprost, za pomoca przerwania 10H.
+
+
+
+NOCARD(ple)
+
+         Funkcja NOCARD zwraca liczbe calkowita
+identyfikujaca rodzaj monitora obslugiwanego przez biezaco
+uzywana biblioteke:
+
+     1    dla karty Hercules
+     2    dla karty IBM w trybie kolor
+     3    dla karty IBM w trybie mono 640*200
+     4    dla karty IBM w trybie mono 320*200
+     5    dla karty EGA
+
+         Funkcja NOCARD moze byc wywolana dopiero po
+zainicjowaniu trybu graficznego za pomoca procedury GRON.
+Parametr ple jest ignorowany.
+
+
+
+GROFF
+
+         Procedura GROFF przelacza monitor w tryb tekstowy,
+wypelniajac zawartosc jego ekranu spacjami. Przed
+zakonczeniem dzialania programu monitor, z ktorego byl
+wywolany, nalezy zawsze ustawic z powrotem w tryb tekstowy.
+
+
+CLS
+
+         Procedura CLS czysci ekran, wypelniajac go kolorem
+0. Czyszczenie odbywa sie bez wylaczania ekranu.
+
+
+                                                            6
+
+
+
+HPAGE(nr, tryb, zeruj)
+
+         Procedura HPAGE ma zastosowanie jedynie dla kart
+Hercules oraz EGA. Pozwala na dostep do drugiej strony
+graficznej monitora. Wywolanie HPAGE wybiera strone o
+numerze nr (0 lub 1), zeruje jej zawartosc, o ile parametr
+zeruj ma wartosc <> 0, oraz ustawia jej tryb:
+
+     tryb = 0 wyswietla zawartosc strony alfanumerycznie
+     tryb = 1 wyswietla zawartosc strony graficznie
+     tryb =-1 przypisuje do tej strony bufor roboczy
+
+
+         Przypisanie bufora roboczego trybem -1 nie zmienia
+numeru ani sposobu wyswietlania biezacej strony. Tryb 0
+wiaze bufor roboczy z wybrana wlasnie strona. Przelaczanie
+stron odbywa sie bez opoznien, o ile nie ulega zmianie tryb
+wyswietlania (alfanumeryka/grafika). Poza tym, wywolanie
+HPAGE(0,1,1) jest ( tylko dla karty Hercules ) rownowazne
+GRON(), a HPAGE(0,0,1) - wywolaniu GROFF.
+
+Typowa petla animacyjna moze byc zatem rozwiazana na
+przyklad tak:
+
+VAR  NR: INTEGER;
+BEGIN
+     GRON(0);
+     NR := 1;
+     (* NARYSUJ PIERWOTNY OBRAZ *)
+     DRAW(...
+     ...
+     WHILE JESZCZE DO
+          HPAGE(1-NR,1,0); (* WYSWIETLANIE *)
+          HPAGE(NR,-1,1);  (* BUFOROWANIE *)
+     (* NARYSUJ ZMODYFIKOWANY OBRAZ *)
+          DRAW(...
+          ...
+          NR := 1-NR
+     OD
+
+
+VIDEO(tablica)
+
+         Procedura VIDEO przelacza bufor roboczy tak, aby
+miescil sie on w tablicy podanej jako parametr jej
+wywolania.
+Samo wywolanie VIDEO nie zmienia zawartosci bufora. Obraz
+wyswietlany na monitorze nie bedzie ulegal teraz zmianom
+mimo wywolywania procedur modyfikujacych zawartosc ekranu.
+Wszelkie odwolania do ekranu beda teraz dokonywane w
+tablicy. Gotowy obraz moze byc przeniesiony na rzeczywisty
+ekran za pomoca procedur GETMAP/PUTMAP lub zapisany binarnie
+na dysku w celu pozniejszego odtworzenia. Tablica powinna
+miec 16K bajtow przy wspolpracy z karta IBM i 32K bajtow
+przy wspolpracy z karta Hercules.
+Procedury VIDEO nie mozna stosowac dla karty EGA.
+
+
+                                                            7
+
+
+Przyklad:
+
+VAR  BOK: ARRAY[1..32K] OF BYTE;
+     FRAGM: ARRAY[1..MAX] OF BYTE;
+BEGIN
+     GRON(1);
+     (* NARYSUJ STRONE TYTULOWA *)
+     DRAW(...
+     ...
+     (* SKONSTRUUJ RYSUNEK "NA BOKU" *)
+     VIDEO(BOK);
+     DRAW(...
+     ...
+     (* ZAPAMIETAJ FRAGMENT GOTOWEGO RYSUNKU *)
+     MOVE(MINX,MINY);
+     GETMAP(MAXX,MAXY,FRAGM);
+     (* PRZYPISZ Z POWROTEM EKRAN DO MONITORA *)
+     GRON(1); (* NIESTETY, CZYSCI EKRAN *)
+     MOVE(MINX,MINY);
+     PUTMAP(FRAGM);
+     ...
+
+Uwaga:
+     W przypadku wywolania  VIDEO(tablica(adres)), wartosc
+wyrazenia adres musi byc postaci  1+k*16, gdzie k=0,1,2,...
+
+
+
+                                                            8
+
+
+
+Procedury sterujace kolorami
+
+
+COLOR(kolor)
+
+         Procedura COLOR ustawia biezacy kolor. W tym
+kolorze beda odtad dokonywane zmiany zawartosci ekranu. Na
+monitorach monochromatycznych kolor 0 oznacza czarny (pixel
+wygaszony), kolor <> 0 oznacza bialy (pixel zapalony).
+Na monitorach kolorowych, dla karty IBM color/graphics,
+kolory maja nastepujace numery:
+
+     0 - tlo (czarny lub ustalony wywolaniem BORDER)
+     1 - zielony lub turkusowy -  cyan ( zaleznie od wyboru
+palety)
+     2 - czerwony lub purpurowy - magenta
+     3 - zolty lub bialy
+
+Kolorem ustawionym poczatkowo jest 1.
+
+
+         Dla karty EGA kolor moze przyjmowac wartosci od 0
+do 15. Znaczenie tego parametru jest okreslone poprzez wybor
+palety ( przyporzadkowanie kazdemu z 16 identyfikatorow
+koloru dowolnego koloru z 64 istniejacych ), dokonywany za
+pomoca procedury PALLET.
+Kolorem ustawionym poczatkowo jest 7.
+
+
+STYLE(styl)
+
+         Procedura STYLE ustawia biezacy styl, czyli
+kombinacje kolorow uzywana do rysowania odcinkow (DRAW) i
+wypelniania obszarow (HFILL,VFILL). Styl wybiera jeden z
+szesciu nastepujacych sposobow mieszania tla (.) i biezacego
+koloru (*):
+
+     0 - ....
+     1 - ****
+     2 - ***.
+     3 - **..
+     4 - *.*.
+     5 - *...
+
+         Przy rysowaniu odcinkow kolejne pixle beda mialy
+kolor wyznaczony cyklicznie wzorcem stylu. Pierwszy i
+ostatni pixel odcinka bedzie zawsze mial biezacy kolor.
+Przy wypelnianiu, podany wzorzec  dotyczy linii poziomych
+(pionowych) ekranu o parzystej wspolrzednej y (x). Wzorzec
+dla linii o wspolrzednych nieparzystych dobierany jest
+automatycznie.
+Inne sposoby mieszania, dopuszczajace uzycie wiekszej liczby
+kolorow sa dostepne za pomoca procedury PATERN.
+
+
+                                                            9
+
+
+PATERN(par,par1,par2,par3)
+
+         Procedura PATERN pozwala rysowac odcinki i
+wypelniac obszary dowolna kombinacja kolorow. Przy rysowaniu
+odcinkow brany jest pod uwage tylko par. Przy wypelnianiu,
+par oraz par2 dotycza linii poziomych (pionowych) o
+wspolrzednych  y (x) parzystych, par1 oraz par3 - linii o
+wspolrzednych nieparzystych ( na zmiane kolejno par/par2
+oraz par1/par3 ). Wartosci par,...,par3 przedstawione jako
+czterocyfrowe liczby szesnastkowe daja wzorce mieszania
+numerow kolorow.  0 oznacza tlo, inne cyfry - zob. opis
+procedury COLOR.
+
+Przyklad:
+
+PATERN(#1100,#0011,#1100,#0011);
+          ODPOWIADA:  COLOR(1); STYLE(3);
+
+natomiast efekt:
+
+PATERN(#1212,#0303,#2121,#3030);
+          NIE MOzE BYC UZYSKANY INACZEJ
+
+
+BORDER(kolor)
+
+         Procedura BORDER ustawia biezacy kolor tla.
+
+     kolor     kolor
+
+       0       czarny
+       1       niebieski
+       2       zielony
+       3       turkusowy - cyan (niebiesko-zielony)
+       4       czerwony
+       5       karmazynowy - magenta (czerwono-niebieski)
+       6       zolty
+       7       jasno szary
+
+Kolory 8 - 15 to jasniejsze odcienie kolorow 0 - 7, przy
+czym kolor bialy ma numer 15.
+
+Przedstawione powyzej kolory dotycza tylko karty IBM, dla
+karty EGA natomiast parametr kolor moze przyjmowac wartosci
+od 0 do 63.
+
+
+PALLET(nr)
+
+         Dla karty IBM color/graphics :
+
+          procedura PALLET wybiera biezaca palete z dwu
+mozliwych
+
+
+     nr             kolory
+
+     0              turkusowy,karmazynowy,bialy
+     1              zielony,czerwony,zolty
+
+
+
+                                                            10
+
+
+         Domyslna paleta jest paleta nr 0.
+
+         Dla karty EGA natomiast procedura PALLET sluzy do
+wyboru dowolnych 16 kolorow z 64 ogolnie dostepnych.
+Parametr nr powinien byc postaci
+               kolor16 * 256 + kolor64,
+gdzie
+          kolor16 oznacza identyfikator koloru ( uzywany
+przez procedure COLOR ), mogacy przyjmowac wartosci 0 - 15,
+          kolor64 oznacza wybrany kolor.
+
+
+         Standardowa paleta ( przyjmowana domyslnie )
+zawiera nastepujace kolory :
+
+     identyfikator     kolor          numer koloru
+
+          0          czarny                 0
+          1          niebieski              1
+          2          zielony                2
+          3          turkusowy              3
+          4          czerwony               4
+          5          karmazynowy            5
+          6          zolty                  6
+          7          bialy                  7
+          8          szary                 56
+          9          jasno-niebieski       57
+         10          jasno-zielony         58
+         11          jasno-turkusowy       59
+         12          jasno-czerwony        60
+         13          jasno-karmazynowy     61
+         14          jasno-zolty           62
+         15          intensywny bialy      63
+
+
+         Wszystkie dostepne kolory mozna obejrzec oraz
+poznac ich numery za pomoca programu demonstracyjnego
+EGADEMO.EXE.
+
+         Procedura PALLET nie ma zastosowania dla karty
+Hercules.
+
+
+
+INTENS(i)
+
+         Procedura INTENS wybiera intensywnosc kolorow.
+Dla i rownego 0 intensywnosc jest wieksza, dla i rownego 1
+mniejsza.
+Domyslnie intensywnosc jest ustawiona na poziomie 0.
+
+Procedura INTENS ma zastosowanie tylko dla karty IBM.
+
+
+                                                            11
+
+
+
+Procedury ustawiania pozycji
+
+
+MOVE(x,y)
+
+         Procedura MOVE ustawia biezaca pozycje na ekranie
+na pixel o wspolrzednych (x {kolumna}, y {wiersz}).
+
+
+INXPOS(ple), INYPOS(ple)
+
+         Funkcje calkowite INXPOS i INYPOS zwracaja
+odpowiednio wspolrzedne x i y biezacej pozycji. Parametr ple
+jest ignorowany.
+
+
+PUSHXY
+
+         Procedura PUSHXY powoduje przechowanie biezacej
+pozycji, koloru i stylu na wierzcholku wewnetrznego stosu
+IIUWGRAFu. Parametry te nie ulegaja przy tym zmianie.
+Maksymalna glebokosc stosu wynosi 16.
+
+
+POPXY
+
+         Procedura POPXY odtwarza biezacy styl, kolor i
+pozycje z wierzcholka wewnetrznego stosu IIUWGRAFu.
+Glebokosc stosu zmniejsza sie o 1.
+
+
+
+Przyklad:
+
+
+PROCEDURE SKOS;
+VAR  IX,IY:INTEGER;
+BEGIN
+     PUSHXY;
+     IX := INXPOS(0);
+     IY := INYPOS(0);
+     DRAW(IX+10,IY+10);
+     POPXY;
+END;
+
+
+                                                            12
+
+
+
+TRACK(x,y)
+
+         Procedura TRACK wyswietla na ekranie wskaznik w
+ksztalcie malej (8*8 pixli) strzalki, skierowanej na punkt o
+wspolrzednych (x,y). Wskaznik ten moze byc przesuwany po
+ekranie za pomoca klawiszy kierunkowych. Nacisniecie
+klawisza powoduje przesuniecie wskaznika o 5 pixli.
+Nacisniecie odpowiedniego klawisza w trybie numerycznym
+przesuwa wskaznik o 1 pixel. Klawisz "home" powoduje powrot
+wskaznika do pozycji (x,y). Klawisz "End" usuwa wskaznik z
+ekranu i powoduje powrot z procedury, pozostawiajac biezaca
+pozycje w tym miejscu. Moze byc ona teraz odczytana za
+pomoca funkcji INXPOS i INYPOS.
+
+
+
+
+
+
+
+Procedury obslugujace punkty
+
+
+POINT(x,y)
+
+         Procedura POINT ustawia biezaca pozycje w punkcie
+(x,y) i zmienia jego kolor na biezacy.
+
+
+INPIX(x,y)
+
+         Funkcja INPIX ustawia biezaca pozycje w punkcie
+(x,y) i zwraca jego kolor.
+
+
+                                                            13
+
+
+
+Procedury rysowania linii
+
+
+DRAW(x,y)
+
+         Procedura DRAW rysuje odcinek od biezacej pozycji
+do pozycji o wspolrzednych (x,y). Rysowanie polega na
+zmianie koloru pixli nalezacych, wedlug algorytmu
+Bresenhama, do odcinka.  Pixle te przyjmuja nowy stan
+zaleznie od biezacego koloru i stylu.
+
+
+
+CIRB(x,y,r,alfa,beta,kolb,wwyp,p,q)
+
+         Procedura CIRB  rysuje na ekranie wycinek okregu
+lub elipsy, zaleznie od podanych wartosci p i q,
+okreslajacych aspekt. Aspekt wyznaczony jest stosunkiem p/q.
+Dla wartosci aspektu rownej 1 zostanie narysowany idealny
+okrag.  Srodek bedzie umieszczony w punkcie (x,y), promien
+poziomy bedzie mial wielkosc r pixli, alfa i beta okreslaja,
+odpowiednio kat poczatkowy i koncowy rysowanego wycinka. Dla
+alfa = beta zostanie narysowany pelny okrag (lub elipsa).
+Wartosci alfa i beta sa wyrazane w radianach, w zwyklym
+ukladzie. Brzeg wycinka i jego promienie zostana narysowane
+kolorem kolb, niezaleznie od stylu. Jesli wwyp <> 0, wnetrze
+wycinka zostanie wypelnione biezacym kolorem i stylem.
+
+
+HFILL(x)
+
+         Procedura HFILL rysuje, w biezacym kolorze i stylu,
+odcinek poziomy od biezacej pozycji do punktu o
+wspolrzednych
+
+     (x,inypos(0))
+
+OSTROZNIE: HFILL nie zmienia biezacej pozycji.
+
+         Uzycie HFILL jest zalecane przy wypelnianiu
+obszarow, gdyz dziala znacznie szybciej niz odpowiedni DRAW.
+Rowniez mieszajac kolory w danym stylu, HFILL, w
+przeciwienstwie do DRAW nie bierze pod uwage poczatkowego
+punktu odcinka, co pozwala na uzyskanie substytutu
+dodatkowych kolorow.
+
+
+
+
+                                                            14
+
+
+VFILL(y)
+
+
+         Procedura VFILL rysuje, w biezacym kolorze i stylu,
+odcinek pionowy od biezacej pozycji do punktu o
+wspolrzednych
+
+     (inxpos(0),y)
+
+OSTROZNIE: VFILL nie zmienia biezacej pozycji.
+
+
+                                                            15
+
+
+
+Procedury operujace na fragmentach ekranu
+
+
+GETMAP(x,y,tablica)
+
+         Procedura GETMAP zapamietuje prostokatny obszar
+ekranu pomiedzy biezaca pozycja jako lewym gornym rogiem a
+punktem (x,y) jako prawym dolnym rogiem w tablicy. GETMAP
+nie zmienia przy tym biezacej pozycji. Tablica powinna miec
+co najmniej  4 + w*sufit(k/8)*kol bajtow, gdzie w i k sa,
+odpowiednio, liczba wierszy i kolumn zapamietywanego
+obszaru, natomiast wartosc wspolczynnika kol zalezy od
+rodzaju karty graficznej i wynosi  1 dla karty Hercules,
+2 dla karty IBM oraz 4 dla karty EGA.
+
+Przyklad: zapamietanie obszaru 101*101 polozonego w lewym
+gornym rogu ekranu.
+
+VAR  OKNO: ARRAY[1..700] OF INTEGER;
+
+     ...
+     MOVE(0,0);
+     GETMAP(100,100,OKNO);
+     ...
+
+
+
+PUTMAP(tablica)
+
+         Procedura PUTMAP ustawia prostokatny obszar ekranu
+o lewym gornym rogu znajdujacym sie w biezacej pozycji
+zgodnie z zawartoscia tablicy, w ktorej uprzednio
+zapamietano fragment ekranu za pomoca procedury GETMAP.
+Biezaca pozycja nie ulega zmianie. Odtworzeniu podlega caly
+zapamietany obszar, ktory jest kopiowany w nowe miejsce.
+
+
+ORMAP(tablica)
+
+         Procedura ORMAP dziala podobnie jak PUTMAP, lecz o
+nowej  zawartosci ekranu decyduje wynik zastosowania funkcji
+or do elementow tablicy i ekranu.
+
+
+XORMAP(tablica)
+
+         Procedura XORMAP dziala podobnie jak PUTMAP, lecz o
+nowej  zawartosci ekranu decyduje wynik zastosowania funkcji
+xor do elementow tablicy i ekranu.
+
+
+                                                            16
+
+
+
+Procedury wejscia/wyjscia dla pojedynczych znakow
+
+
+INKEY(ple)
+
+         Funkcja calkowita INKEY podaje i usuwa nastepny
+znak z bufora klawiatury. Czytanie odbywa sie bez echa.
+Jesli bufor jest pusty, wynikiem jest 0. Klawisze specjalne
+kodowane sa jako liczby ujemne wedlug zalaczonej tablicy.
+Metoda ALT-NUM moze byc uzyta do wprowadzenia z klawiatury
+kodow powyzej 127 jako zwyklych znakow. Uniemozliwia to,
+niestety, korzystanie ze znakow specjalnych o kodach od 128
+do 132.
+
+Przyklad: zaczekaj na klawisz End.
+
+PROCEDURE WAIT_FOR_END;
+BEGIN
+     WHILE INKEY(0)<>-79 DO;
+END;
+
+Wartosci kodow klawiszy specjalnych podane sa w Dodatku F.
+
+
+HASCII(kod)
+
+         Procedura HASCII rysuje na ekranie znak
+alfanumeryczny. Znak wpisany jest w raster 8*8. Gorny lewy
+rog rastra umieszczony bedzie w biezacej pozycji, ktora
+jednoczesnie przesunie sie o 8 pixli w prawo. Uzyta funkcja
+rysujaca jest xor. Kroj znakow pobierany jest z tablicy
+znajdujacej sie w ROM BIOS standardowo pod adresem
+F000:FA6E. W przypadku niestandardowego ROM BIOSu obraz
+znaku alfanumerycznego bedzie zly. Uzycie procedur HFONT i
+HFONT8 pozwala uniezaleznic sie od wersji BIOSu a takze
+korzystac z innych, rowniez wlasnorecznie zaprojektowanych
+krojow znakow. Kod znaku 0 powoduje tylko wyczyszczenie
+miejsca przeznaczonego na znak, bez zmiany biezacej pozycji.
+Wszystkie kody maja tylko interpretacje graficzna, bez
+funkcji sterujacych (NL, CR etc.).
+
+Przyklad: napisanie slowa "oh" na gwarantowanie czystym tle.
+
+
+HASCII(0); HASCII('o'); HASCII(0); HASCII('h');
+
+Uwaga:
+     Parametr procedury HASCII moze byc typu integer lub
+znakowego ( character w Fortranie, char w Pascalu i C ).
+
+
+
+                                                            17
+
+
+
+HFONT(segment,offset)
+
+         Wywolanie procedury HFONT przelacza adres wzorca
+znakow alfanumerycznych na segment:offset. Bez uzycia HFONT
+uzywa sie adresu F000:FA6E.
+
+
+HFONT8(segment,offset)
+
+         Uzycie procedury HFONT8 dolacza do programu
+uzytkowego kopie tablicy kroju znakow z ROM BIOS i zwraca
+adres tej kopii jako segment:offset (parametry wyjsciowe).
+
+
+
+
+                                                            18
+
+
+
+Procedury wejscia/wyjscia dla linii
+
+
+OUTHLINE(dlugosc,bufor)
+
+         Procedura OUTHLINE wywoluje HASCII dlugosc razy,
+wypisujac na ekran znaki, ktorych kody zawarte sa w buforze.
+Przed narysowaniem kazdego znaku wywolywane jest HASCII(0).
+
+
+INHLINE(dlugosc,bufor)
+
+         Procedura INHLINE wczytuje z klawiatury linie
+zlozona z co najwyzej dlugosci znakow i umieszcza je w
+buforze. Do wczytywania uzyta jest procedura INKEY.
+Wyswietlane jest echo. Migajacy wskaznik oznacza oczekiwanie
+na nacisniecie klawisza. Klawisz BACKSPACE dziala tak, jak
+mozna tego oczekiwac. Linia moze byc zakonczona klawiszem CR
+albo wyczerpaniem jej dlugosci. Znak CR konczacy linie nie
+jest umieszczany w buforze. Przed rozpoczeciem czytania
+bufor jest wypelniany spacjami. Po zakonczeniu czytania
+parametr dlugosc zwraca liczbe wczytanych znakow.
+Migajacy wskaznik jest zawsze rysowany kolorem numer 1,
+wyswietlane znaki natomiast biezacym kolorem.
+
+
+Przyklad: echo wczytanej linii.
+
+VAR  LINIA: ARRAY[1:40] OF INTEGER;
+     N: INTEGER;
+BEGIN
+     N:=80;
+     INHLINE(N,LINIA);
+     IF N=0 THEN MOVE(INXPOS(0),INYPOS(0)+10)
+            ELSE OUTHLINE(N,LINIA);
+     ...
+
+
+
+
+                                                            19
+
+
+
+Procedury wejscia/wyjscia dla okienek
+
+
+MKWNDW(x,y,kolumn,wierszy,okienko,rozmiar,ramka)
+
+         Procedura MKWNDW urzadza na ekranie prostokatne
+okienko do konwersacji. Lewy gorny rog okienka znajdzie sie
+w punkcie (x,y). Zmiesci ono zadana liczbe kolumn i wierszy
+tekstu alfanumerycznego. Opis okienka bedzie przechowany w
+dostarczonej przez uzytkownika tablicy okienko. Parametr
+rozmiar jest na razie ignorowany, a tablica powinna miec co
+najmniej 20 bajtow, lub duzo wiecej, jesli okienko ma byc
+zaslaniane i odslaniane ( patrz opis procedury BURY ). Jesli
+parametr ramka ma wartosc rozna od 0, obszar okienka bedzie
+obwiedziony ramka, co uczyni je nieco wiekszym.
+
+
+BURY(okienko)
+
+         Wywolanie BURY usuwa okienko z ekranu, przechowujac
+jego obraz w dalszej czesci tablicy okienko tak, aby moc
+odtworzyc je pozniej za pomoca EXPOSE. Tablica okienko musi
+miec odpowiednia wielkosc, aby GETMAP obszaru okienka
+pozostawilo w niej jeszcze co najmniej 20 bajtow.
+
+
+EXPOSE(okienko,x,y)
+
+         Wywolanie EXPOSE odtwarza okienko przechowane za
+pomoca BURY umieszczajac jego gorny lewy rog w punkcie
+(x,y).
+
+
+OUTWLINE(okienko,dlugosc,bufor)
+
+         Procedura OUTWLINE dziala podobnie jak OUTHLINE,
+wyswietlajac linie w ramach podanego okienka. Bufor o
+dlugosci wiekszej niz rozmiar okienka wyswietli sie w kilku
+liniach.
+
+
+INWLINE(okienko,dlugosc,bufor)
+
+         Procedura INWLINE, podobnie jak INHLINE, wczytuje z
+klawiatury linie tekstu. W przypadku INWLINE okienko
+wskazuje na obszar ekranu, w ktorym ma pojawiac sie echo.
+Jesli dlugosc bufora jest wieksza niz rozmiar okienka echo
+moze zajac w nim kilka linii. Poprawianie wprowadzanego
+tekstu przy uzyciu BACKSPACE jest mozliwe tylko w ostatniej
+czesci linii. Dlugosc jako parametr wyjsciowy zwraca liczbe
+wczytanych znakow, bez konczacego CR.
+
+
+                                                            20
+
+
+
+Procedury poziomu 2
+
+
+         Procedury te operuja wspolrzednymi wyrazonymi
+liczbami rzeczywistymi odnoszacymi sie do abstrakcyjnego
+okna o dowolnych rozmiarach.
+
+
+
+Definiowanie okna
+
+
+SWINDOW(rxy,ixy,skalowanie)
+
+         Procedura SWINDOW urzadza na ekranie prostokatne
+okno umieszczone pomiedzy punktami naroznikowymi podanymi w
+tablicy ixy jako calkowite wspolrzedne prawdziwych pixli.
+Program uzytkowy tworzacy rysunek w tym obszarze bedzie
+okreslal polozenie punktow w sposob abstrakcyjny we
+wspolrzednych rzeczywistych. Tablica rxy podaje zakresy tych
+wspolrzednych. Jesli parametr skalowanie ma wartosc 0,
+abstrakcyjny prostokat bedzie po prostu odwzorowany na
+wskazana czesc ekranu bez zachowania proporcji miedzy
+skalowaniem w pionie i w poziomie. Jesli natomiast parametr
+skalowanie bedzie rozny od zera, wykorzystana zostanie
+jedynie srodkowa czesc obszaru ekranu tak, aby zachowac
+rzeczywiste proporcje rysunku, niezaleznie od aspektu danego
+monitora.
+Odwzorowanie stosowane przez IIUWGRAF odwraca tez kierunek
+wzrastania wspolrzednej y do naturalnego ukladu:
+
+
+             (ixy(1),ixy(3))
+             /
+   (rxy(1),rxy(4))
+          ^
+          |
+          |
+          |
+          | (ixy(1),ixy(4))                  (ixy(2),ixy(4))
+          | /                                   /
+   (rxy(1),rxy(3))--------------------->(rxy(2),rxy(3))
+
+
+Przyklad: przygotowanie rysunku sinusoidy w gornej polowie
+ekranu Herculesa.
+
+
+VAR  RW:ARRAY [1:4] OF REAL INIT (0.,6.29,-1.,1.);
+     IW:ARRAY [1:4] OF INTEGER INIT (0,719,0,173);
+BEGIN
+     SWINDOW(RW,IW,0);
+
+
+
+                                                            21
+
+
+RWINDOW(rxy,skalowanie)
+
+         Procedura RWINDOW jest skrotem wywolania SWINDOW
+dla odwzorowania obejmujacego caly ekran.
+
+
+
+RINXPOS(ple),RINYPOS(ple)
+
+         Funkcje rzeczywiste RINXPOS i RINYPOS zwracaja,
+odpowiednio wspolrzedne x i y biezacej pozycji w
+abstrakcyjnym oknie urzadzonym przez ostatnie wywolanie
+RWINDOW lub SWINDOW. Biezaca pozycja jest zawsze zaokraglana
+do najblizszego pixla.
+
+
+
+RMOVE(rx,ry)
+
+         Wywolanie procedury RMOVE ustawia biezaca pozycje w
+punkcie (rx,ry) w ostatnio urzadzonym oknie. Pozycja ta jest
+zaokraglona do najblizszego pixla.
+
+
+
+RDRAW(rx,ry)
+
+         Wywolanie procedury RDRAW powoduje narysowanie w
+biezacym kolorze i stylu odcinka od biezacej pozycji do
+pixla najblizszego punktowi (rx,ry) w ostatnio urzadzonym
+oknie.
+
+
+
+RCIRB(rx,ry,rr,alfa,beta,kolb,wwyp,p,q)
+
+         Procedura RCIRB odpowiada procedurze CIRB z poziomu
+1, z tym, ze wspolrzedne srodka (rx,ry) i promien rr
+wyrazane sa, jako liczby rzeczywiste, w oknie urzadzonym
+przez ostatnie wywolanie RWINDOW lub SWINDOW. Pozostale
+parametry maja znaczenie takie, jak w CIRB.
+
+
+                                                            22
+
+
+
+Informacje dodatkowe
+
+
+         Pakiet IIUWGRAF zawiera dodatkowo dwa programy
+HGCPRINT.EXE oraz MGCPRINT.EXE. Umozliwiaja one drukowanie
+tworzonych obrazow graficznych na powszechnie dostepnych
+drukarkach ( np. typu STAR GEMINI, EPSON ). W przypadku
+uzywania karty Hercules nalezy stosowac program HGCPRINT, a
+dla karty IBM color/graphics program MGCPRINT.
+
+         Programow tych powinno uzywac sie w nastepujacy
+sposob :
+     przed zaladowaniem wlasnego programu nalezy wykonac
+program HGCPRINT lub MGCPRINT, w zaleznosci od rodzaju
+uzywanej karty graficznej. Kazdy z tych programow ustawia
+znaczenie klawisza PrtSc. Kazdorazowe pozniejsze nacisniecie
+klawisza PrtSc powoduje wydrukowanie graficznej zawartosci
+ekranu.
+
+Uwaga.    W przypadku karty Hercules drukowana jest
+zawartosc pierwszej strony graficznej, niezaleznie od tego,
+ktora strona jest aktualnie wyswietlana.
+          W przypadku karty IBM color/graphics klawisz PrtSc
+zaklada, ze jest ustawiony tryb kolor 320*200. Wydruk obrazu
+graficznego utworzonego w trybie mono 640*200 jest mozliwe
+poprzez uzycie procedury PRTSCR.
+
+         Mozliwosc drukowania obrazu graficznego nie
+istnieje dla karty EGA.
+
+         Autorem programow HGCPRINT oraz MGCPRINT jest
+Krzysztof Studzinski.
+
+
+
+
+Procedury dodatkowe
+
+
+PRTSCR(nr)
+
+         Procedura PRTSCR umozliwia drukowanie obrazow
+graficznych tworzonych na ekranie monitora pod kontrola
+programu. Parametr nr okresla numer strony graficznej
+(0 lub 1), ktorej zawartosc ma byc wydrukowana.
+
+         Wywolanie procedury PRTSCR z parametrem nr rownym
+zeru jest rownowazne nacisnieciu klawisza PrtSc.
+
+         W celu poprawnego dzialania tej procedury nalezy,
+analogicznie jak w przypadku klawisza PrtSc, uprzednio
+wykonac dolaczony program :
+          - HGCPRINT.EXE  w przypadku uzywania karty
+Hercules lub
+          - MGCPRINT.EXE dla karty IBM.
+
+         Procedura PRTSCR nie dziala dla karty EGA.
+
+
+
+
+                                                            23
+
+
+
+
+                         DODATEK A
+
+              Uzycie IIUWGRAFu z FORTRANem 77.
+
+
+1)   Procedury IN?LINE i OUT?LINE dokonuja jedynie
+transmisji tekstu, bez zadnej konwersji pomiedzy postacia
+binarna i tekstowa. Aby takiej konwersji dokonac, mozna
+posluzyc sie instrukcjami formatowanego wejscia/wyjscia
+w polaczeniu z tzw. plikami wewnetrznymi (internal file).
+
+Przyklad:
+
+
+     INTEGER*2 I,J,SUM,W(10)
+     CHARACTER*20 LINE
+     CHARACTER LINEL(20)
+     EQUIVALENCE (LINE,LINEL(1))
+
+     ...
+     CALL MKWNDW(10,10,21,4,W,20,1)
+     CALL OUTWLINE(W,20,'PODAJ 2 LICZBY (2I3)')
+     CALL INWLINE(W,20,LINEL)
+     READ (LINE,'(2I3)') I,J
+     SUM=I+J
+     WRITE (LINE,'(8H SUMA = I4)') SUM
+     CALL OUTWLINE(W,12,LINEL)     
+
+
+                                                            24
+
+
+
+
+
+                         DODATEK B
+
+                Uzycie IIUWGRAFu z PASCALem.
+
+
+1)   Microsoft Pascal dopuszcza jedynie 6 znakow w nazwie
+podprogramu, zatem nazwy: INHLIN(E), INWLIN(E), OUTHLI(NE),
+OUTWLI(NE), RWINDO(W), SWINDO(W), RINXPO(S), RINYPO(S) musza
+byc uzywane w skroconej postaci.
+
+2)   Niektore procedury IIUWGRAFu sa napisane w FORTRANie.
+Przy linkowaniu LINK moze domagac sie dostarczenia
+biblioteki FORTRAN.LIB. Zadanie to nalezy zignorowac.
+
+3)   Do linkowania nalezy uzywac LINK w wersji co najmniej
+3.04, do kompilacji Pascal w wersji co najmniej 3.31.
+
+
+                                                            25
+
+
+
+
+                         DODATEK C
+
+               Uzycie IIUWGRAFu z Lattice C.
+
+
+1)   Nalezy unikac konfliktow z nazwami globalnych zmiennych
+roboczych IIUWGRAFu. Zmienne te maja nazwy rozpoczynajace
+sie od liter WIR... i PQASP...
+
+2)   W przypadku procedur majacych parametry wyjsciowe ( w
+dodatku E sa one zaznaczone jako vars ) nalezy przy ich
+wywolaniu przekazywac adres odpowiedniego parametru
+aktualnego.
+
+Przyklad:
+
+
+          CHAR LENGTH;
+          CHAR *TEXT;
+          ...
+          INHLINE(&LENGTH,TEXT)
+
+
+
+3)   Adresy parametrow aktualnych nalezy przekazywac rowniez
+w przypadku parametrow bedacych tablicami znakowymi.
+
+
+Przyklad:
+
+
+          INT  LENGTH;
+          CHAR *TEXT;    /* LUB NP. CHAR TEXT[40]; */
+          ...
+          OUTHLINE(LENGTH, &TEXT[3]);
+          /* WYPISZ ZNAKI Z TABLICY 'TEXT', ROZPOCZYNAJAC OD
+CZWARTEGO */
+
+
+
+                                                            26
+
+
+
+
+                         DODATEK D
+
+                Uzycie IIUWGRAFu z LOGLANem.
+
+
+1)   W biezacej wersji LOGLANu dostepnych jest jedynie 7
+podstawowych procedur: GRON, GROFF, MOVE, DRAW, HASCII,
+HPAGE, INKEY obslugujacych wylacznie karte Hercules.
+
+2)   System okienek do konwersacji nie bedzie  w LOGLANie
+dostepny w postaci procedur standardowych. Podobnie okienka
+o wspolrzednych rzeczywistych.
+
+3)   Niektore podprogramy dostepne jako funkcje standardowe
+LOGLANu musza miec zmienione specyfikacje parametrow w
+stosunku do oryginalnego IIUWGRAFu:
+
+     IIUWGRAF  LOGLAN
+
+     GETMAP    GETMAP:function:array of ?
+     INKEY     INKEY:integer function; (* bez parametrow *)
+     INXPOS    INXPOS:integer function;(* bez parametrow *)
+     INYPOS    INYPOS:integer function;(* bez parametrow *)
+
+
+
+                                                            27
+
+
+
+
+                         DODATEK E
+
+           Wykaz specyfikacji procedur IIUWGRAFu.
+
+
+     proc BORDER(consts b: integer);
+   L proc BURY(window: buffer);
+     proc CIRB(consts ix,iy,ir: integer;
+               consts alfa, beta: real;
+               consts cbord, bcint, p, q: integer);
+     proc CLS;
+     proc COLOR(consts c: integer);
+     proc DRAW(consts ix,iy: integer);
+   L proc EXPOSE(window: buffer; consts x,y: integer);
+   L proc GETMAP(consts x,y: integer; ekran: buffer);
+   L proc GROFF;
+     proc GRON(consts imode: integer);
+     proc HASCII(consts ic: integer);
+     proc HFILL(consts maxx: integer);
+     proc HFONT(consts seg, offs: integer);
+     proc HFONT8(vars seg, offs: integer);
+     proc HPAGE(consts page, mode, clear: integer);
+  P  proc INHLINE(vars n:integer; line: tekst);
+   L func INKEY(consts idummy: integer): integer;
+     func INPIX(consts x,y: integer): integer;
+     proc INTENS(consts i: integer);
+  PL proc INWLINE(window: buffer; vars n: integer;
+               line: tekst);
+   L func INXPOS(consts idummy: integer): integer;
+   L func INYPOS(consts idummy: integer): integer;
+   L proc MKWNDW(consts x,y,icols,ilines: integer;
+               window: buffer;
+               consts iwndwsize,iborder: integer);
+     proc MOVE(consts ix,iy: integer);
+   L func NOCARD(consts idummy: integer): integer;
+     proc ORMAP(ekran: buffer);
+  PL proc OUTHLINE(consts n:integer; line: tekst);
+  PL proc OUTWLINE(window: buffer; consts n: integer;
+               line: tekst);
+     proc PALLET(consts p: integer);
+     proc PATERN(consts p1, p2, p3, p4: integer);
+     proc POINT(consts ix,iy: integer);
+     proc POPXY;
+     proc PRTSCR(consts nr: integer);
+     proc PUSHXY;
+     proc PUTMAP(ekran: buffer);
+   L proc RCIRB(consts ix,iy,ir: real;
+               consts alfa, beta: real;
+               consts cbord, bcint, p, q: integer);
+   L proc RDRAW(consts rx,ry: real);
+  PL func RINXPOS(consts dummy: real): real;
+  PL func RINYPOS(consts dummy: real): real;
+   L proc RMOVE(consts rx,ry: real);
+  PL proc RWINDOW(rw: array [1:4] of real;
+               consts s: integer);
+     proc STYLE(consts s: integer);
+
+
+                                                            28
+
+
+  PL proc SWINDOW(rw: array [1:4] of real;
+               iw: array [1:4] of integer;
+               consts s: integer);
+     proc TRACK(consts x,y: integer);
+     proc VFILL(consts maxy: integer);
+     proc VIDEO(ekran: buffer);
+     proc XORMAP(ekran: buffer);
+
+Uzyto notacji semi-pascalowej.
+Specyfikacja consts oznacza parametr przekazywany przez
+wartosc (tylko wejsciowy), vars - przez zmienna (wejsciowo-
+wyjsciowy).
+Typ buffer oznacza tablice bajtowa sluzaca do przechowania
+zawartosci okreslonego obszaru ekranu ( rozmiar jej zalezy
+od wielkosci tego obszaru ), typ tekst natomiast oznacza
+tablice znakowa.
+Litery w pierwszej kolumnie sugeruja dodatkowe wazne
+informacje (roznice) w kontekscie konkretnych jezykow
+(Fortran, Pascal, C, Loglan).
+
+
+                                                            29
+
+
+
+                         DODATEK F
+
+            Wartosci kodow klawiszy specjalnych:
+
+
+     3         -    ctrl-2
+     15        -    back tab (shift-tab)
+     16-25     -    ALT-Q az do ALT-P
+     30-38     -    ALT-A az do ALT-L
+     44-50     -    ALT-Z az do ALT-M
+     59-68     -    F1 az do F10
+     71        -    Home
+     72        -    Cursor-Up
+     73        -    PgUp
+     75        -    Cursor-Left
+     77        -    Cursor-Right
+     79        -    End
+     80        -    Cursor-Down
+     81        -    PgDn
+     82        -    Ins
+     83        -    Del
+     84-93     -    Shift-F1 az do Shift-F10
+     94-103    -    Ctrl-F1 az do Ctrl-F10
+     104-113   -    Alt-F1 az do Alt-F10
+     114       -    Ctrl-PrtSc
+     115       -    Ctrl-Cursor-Left
+     116       -    Ctrl-Cursor-Right
+     117       -    Ctrl-End
+     118       -    Ctrl-PgDn
+     119       -    Ctrl-Home
+     120-131   -    Alt-1 az do Alt-=
+     132       -    Ctrl-PgUp
+
+
+                                                            30
+
+
+
+
+                         DODATEK G
+
+                           FEDIT
+
+           Prosty program do edycji kroju znakow.
+         Dodatek do biblioteki graficznej IIUWGRAF.
+
+FEDIT pozwala komponowac i modyfikowac uklady pixli o
+wymiarze 8*8. Takie uklady moga byc wyswietlane razem z
+grafika za pomoca procedury HASCII.
+
+FEDIT produkuje opisy tablic kroju znakow w dwoch
+postaciach:
+
+     -    jako podprogram dostarczajacy adres tablicy kroju
+w postaci odpowiedniej do przekazania procedurze HFONT,
+
+     -    jako niezalezny program umieszczajacy wskaznik do
+tablicy kroju w wektorze przerwania 14H.
+
+Pierwszy format moze byc uzyty do zastapienia standardowego
+zestawu znakow zwykle znajdujacego sie w ROM BIOS pod
+adresem F000:FA6E. Jest on uzywany przez procedure HASCII do
+rysowania znakow o kodach od 0 do 127. Stad jego nazwa :
+     "format 0".
+
+Podprogram wygenerowany przez FEDIT ma nazwe HFONT8. Po
+przetlumaczeniu przez MACROASSEMBLER musi byc on linkowany
+razem z programem uzytkowym. Jesli zajdzie potrzeba zmiany
+nazwy (np. w celu dynamicznego przelaczania pomiedzy kilkoma
+krojami znakow), nazwa moze byc zmieniona recznie w tekscie
+zrodlowym.
+
+Drugi format jest uzywany do rysowania znakow z
+rozszerzonego zakresu znakow o kodach od 128 do 255. Stad
+nazwa:
+     "format 128".
+
+Opis zestawu znakow w tym formacie musi byc zaladowany do
+pamieci przed rozpoczeciem wykonania programu, ktory z niego
+korzysta. Wskaznik do tablicy kroju musi byc wpisany w
+wektor przerwania 14H. Robi to program wygenerowany przez
+FEDIT, ktory nastepnie zawiesza sie za pomoca przerwania 27H
+(terminate but stay resident). W tym przypadku tekst
+zrodlowy po przetlumaczeniu przez MACROASSEMBLER musi byc
+zlinkowany (bez zadnych bibliotek) do postaci .EXE.
+IIUWGRAF i FEDIT nie daja mozliwosci dynamicznego
+przelaczania tablic znakow rozszerzonego zakresu.
+
+
+
+                                                            31
+
+
+Przyklad:
+
+VAR  ISEG, IOFFS: INTEGER;
+BEGIN
+     HFONT8(ISEG,IOFFS); (* ADRES TABLICY FORMATU 0 *)
+     ...
+     HASCII(45);         (* UZYWA ROM BIOS *)
+     HASCII(145);        (* UZYWA ROZSZERZONEGO ZESTAWU *)
+     ...
+     HFONT(ISEG,IOFFS);
+     HASCII(45);         (* UZYWA TABLICY FORMATU 0 *)
+     HASCII(145);        (* TEN SAM ROZSZERZONY ZESTAW *)
+     ...
+     HFONT(16#F000,16#FA6E);
+     HASCII(45);         (* ZNOWU ROM BIOS *)
+     HASCII(145);        (* TEN SAM ROZSZERZONY ZESTAW *)
+
+
+     FEDIT jest prostym programem konwersacyjnym o kilku
+zaledwie rozkazach. Tablica kroju znakow zawiera wzorce
+ukladow pixli rozmiaru 8*8. Wzorzec pojedynczego znaku moze
+byc wyjety z tej tablicy w celu jego edycji i zapamietany z
+powrotem, byc moze w innym miejscu tablicy. Sa dwie tablice
+znakow: jedna dla kodow od 0 do 127, druga dla kodow od 128
+do 255. Pierwsza z nich nie moze byc modyfikowana. Druga z
+nich moze poczatkowo zawierac  zaladowany wczesniej
+rozszerzony zestaw lub zostac wyczyszczona. Mozna tez
+wczytac do niej zestaw zawarty w pliku wygenerowanym
+wczesniej przez FEDIT. Po dokonaniu modyfikacji, zawartosc
+tej drugiej tablicy moze byc uzyta do generacji badz
+"formatu 0" badz "128".
+
+
+                      Rozkazy FEDITu.
+
+
+Rozkazy FEDITu sa wprowadzane jako pojedyncze litery
+wybierajace czynnosci wymienione w jadlospisie wyswietlonym
+u gory ekranu. Dodatkowe parametry podaje sie po
+przynagleniu przez FEDIT.
+
+Komendy FEDITu:
+
+<    low  odswieza tablice "0 do 127"
+
+>    high odswieza tablice "128 do 255"
+
+i    init inicjalizuje zerami tablice "128 do 255"
+
+l    load laduje tablice "128 do 255" z pliku
+          dodatkowy parametr:
+               - nazwa pliku (musi istniec)
+
+
+                                                            32
+
+
+
+d    dump wypisuje zawartosc tablicy "128 do 255"
+          na plik; dodatkowe parametry:
+               - nazwa pliku (bedzie zapisany)
+               - baza ( 0 albo 128),
+                 zaleznie od formatu
+               - jezyk:
+                    f - MS Fortran, MS Pascal
+                    s - Lattice C, model S
+                    p - Lattice C, model P
+                    d - Lattice C, model D
+                    l - Lattice C, model L
+
+e    edit wyjmuje z tablicy pojedynczy znak
+          i umieszcza go w obszarze roboczym.
+          dodatkowy parametr:
+               - kod znaku (dziesietnie)
+          Po obszarze roboczym mozna poruszac sie
+          za pomoca klawiszy kierunkowych. Pixel
+          zapala klawisz Ins, gasi klawisz Del.
+          Klawisz End powoduje wyjscie z tego trybu.
+
+t    text wyswietla tekst pomocny przy ocenie
+          jakosci ksztaltu znakow. Tekst, nie dluzszy
+          niz 40 znakow jest wprowadzany przez uzytkow-
+          nika. Dodatkowe parametry:
+               - vspace,
+               - hspace - odpowiednio, pionowy i poziomy
+          odstep w pixlach pomiedzy znakami. Normalnie,
+          vspace wynosi 2, hspace - 0.
+
+p    put  przechowuje wzorzec z obszaru roboczego pod
+          wskazanym kodem. Dodatkowy parametr:
+               - kod pozycji (dziesietnie),
+                 powinien byc miedzy 128 a 255
+
+q    quit konczy dzialanie FEDIT
+
+
+Z FEDITem nalezy obchodzic sie ostroznie. Posiada on jedynie
+minimalne wbudowane zabezpieczenia i np. bez ostrzezenia
+zapisze nowa, nie wykonczona jeszcze wersje kroju znakow na
+pliku zawierajacym jedyny egzemplarz poprzedniej, bardzo
+potrzebnej wersji.
+
+
+                                                            33
+
+
+
+                         DODATEK H
+
+     Zmiany IIUWGRAFu w stosunku do poprzednich wersji
+
+
+
+         Zmiany IIUWGRAFu w stosunku do wersji 1.1
+
+
+1)   Rozszerzenie zestawu obslugiwanych kart graficznych o
+karte EGA  ( IBM Enhanced Graphics Adapter ).
+
+2)   Niewielkie modyfikacje procedur IIUWGRAFu :
+
+          - dodanie procedury PRTSCR,
+          - modyfikacja procedury PATERN polegajaca na :
+               zwiekszeniu liczby parametrow ( wzorcow ) z
+dwoch do czterech oraz
+               zmianie postaci tych parametrow ( zamiast
+liczb dziesietnych liczby szesnastkowe ),
+( rozszerzenie wzorcow oczywiscie oznacza rownoczesnie
+modyfikacje procedur HFILL oraz VFILL ),
+          - zmiany nazw procedur GRAPH, TEXT, SCREEN
+odpowiednio na GRON, GROFF, NOCARD.
+
+
+
+
+         Zmiany IIUWGRAFu w stosunku do wersji 2.1
+
+
+1)   Udostepnienie procedur CIRB oraz RCIRB dla C.
+

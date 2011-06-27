@@ -1,0 +1,239 @@
+Program tri;
+
+(*******************************************************************)
+
+Unit newpage:procedure;
+begin
+  write(chr(27),"[2J");
+end newpage;
+
+(*******************************************************************)
+
+Unit gotoxy : procedure (row, column : integer);
+        var c, d, e, f : char,
+            i, j : integer;
+begin
+     i := row div 10;
+     j := row mod 10;
+     c := chr (48+i);
+     d := chr (48+j);
+     i := column div 10;
+     j := column mod 10;
+     e := chr (48+i);
+     f := chr (48+j);
+     write (chr(27), "[", c, d, ";", e, f, "H");
+ end gotoxy;
+
+(*******************************************************************)
+
+Unit pause:procedure(input seconde:integer);
+  var temps:integer;
+begin
+  for temps:=1 to (9000*seconde) do od;
+end pause;
+
+(*******************************************************************)
+
+Unit affiche:procedure(input position:integer;
+                       inout tableau:arrayof integer);
+var i:integer;
+begin
+for i:=1 to upper(tableau) do
+   if i=position then write(chr(27),"[33m");
+                      write(" ",tableau(i):4," ");
+                      write(chr(27),"[36m")
+   else
+   write(" ",tableau(i):4," ") fi;
+od;
+writeln;
+end affiche;
+
+(*******************************************************************)
+
+Unit A:process(n:integer;p:B);
+var tabA:arrayof integer,
+    max,position,nb,i,nombre,j:integer,
+    bo:boolean;
+
+                      (********************)
+
+Unit rech_max:procedure(output max,position:integer);
+(* Recherche du plus grand ‚l‚ment de tabA *)
+var i:integer;
+begin
+max:=tabA(1);
+position:=1;
+for i:=2 to nb do
+  if tabA(i)>max then max:=tabA(i);
+		      position:=i;
+  fi;
+od;
+end rech_max;
+
+                      (********************)
+
+begin
+        call gotoxy(2,20);
+	write(chr(27),"[33m");
+        writeln("- SAISIE DU TABLEAU A -");
+	write(chr(27),"[36m");
+	call gotoxy(4,1);
+	write("Quelle est la dimension de tabA ? ");
+	read(nb);
+	array tabA dim (1:nb);
+	for i:=1 to nb do
+	  write("Donnez tabA(",i:3,") : ");
+	  readln(nombre);
+	  tabA(i):=nombre;
+	od;
+	call newpage;
+	call gotoxy(2,15);
+	writeln("AFFICHAGE DES DIFFERENTES ETAPES DU TRI");
+	writeln;
+	return;
+	j:=0;
+	do
+
+		call rech_max(max,position);
+		writeln;
+		if j<>0 then writeln("Etape ",j:2," : ") fi;
+		call p.ec;
+                write("TabA = ");
+		call affiche(position,tabA);
+		call p.rire;
+		call p.echange(max,bo);
+		tabA(position):=max;
+		j:=j+1;
+		if bo then exit fi;
+ 	od;
+	position:=0;
+	write(chr(27),"[32m");
+        writeln("Resultat Final : ");
+        write(chr(27),"[36m");
+	call p.ec;
+	write("TabA = ");
+        call affiche(position,tabA);
+	call p.rire;
+end A;
+
+(*******************************************************************)
+
+Unit B:process(n:integer);
+var tabB:arrayof integer,
+    min,position,nb,i,nombre,j:integer,
+    bidon:char,
+    arret:boolean;
+
+                      (********************)
+
+Unit rech_min:procedure(output min,position:integer);
+(* Recherche du plus petit ‚l‚ment de tabB *)
+var i:integer;
+begin
+min:=tabB(1);
+position:=1;
+for i:=2 to nb do
+  if tabB(i)<min then min:=tabB(i);
+		      position:=i;
+  fi;
+od;
+end rech_min;
+
+                      (********************)
+
+Unit echange:procedure(inout max:integer;
+                       output bo:boolean);
+begin
+	if min<max then tabB(position):=max;
+	                max:=min;
+	                bo:=false
+	else bo:=true;
+ 	     arret:=true fi;
+end echange;
+
+Unit ec:procedure;
+end ec;
+
+Unit rire:procedure;
+end rire;
+
+                     (********************)
+
+begin
+        call gotoxy(2,20);
+	write(chr(27),"[33m");
+        writeln("- SAISIE DU TABLEAU B -");
+	write(chr(27),"[36m");
+	call gotoxy(4,1);
+        write("Quelle est la dimension de tabB ? ");
+	read(nb);
+	array tabB dim (1:nb);
+	for i:=1 to nb do
+	  write("Donnez tabB(",i:3,") : ");
+	  readln(nombre);
+	  tabB(i):=nombre;
+	od;
+	call newpage;
+	return;
+	j:=0;
+	do
+
+		call rech_min(min,position);
+		accept ec;
+		accept rire;
+                write("TabB = ");
+		call affiche(position,tabB);
+		writeln;
+		j:=j+1;
+		if (j mod 4)=0 then write(chr(27),"[32m");
+				    writeln("< Appuyez sur Retour >");
+                                    write(chr(27),"[36m");
+				    read(bidon);
+				    call newpage fi;
+
+		accept echange;
+		if arret then exit fi;
+	od;
+	accept ec;
+	accept rire;
+	position:=0;
+	write("TabB = ");
+	call affiche(position,tabB);
+end B;
+
+(*******************************************************************)
+
+Unit baniere:procedure;
+begin
+ call newpage;
+ write(chr(27),"[31m");
+ call gotoxy(7,22);
+ writeln("PARTITION DE DEUX ENSEMBLES :");
+ call gotoxy(9,31);
+ writeln("Min & Max");
+ write(chr(27),"[36m");
+ call gotoxy(15,29);
+ writeln("Presented by");
+ call gotoxy(22,26);
+ write(chr(27),"[32m");
+ writeln("- Dupin Christophe -");
+ call pause(2);
+ write(chr(27),"[36m");
+ call newpage;
+end baniere;
+
+(************************* Programme principal *****************************)
+
+var arret:boolean,
+    processusA : A,
+    processusB : B;
+
+begin
+        call baniere;
+        processusB:=new B(0);
+	processusA:=new A(0,processusB);
+	resume(processusA);
+	resume(processusB);
+end tri;
+
+

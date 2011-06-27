@@ -1,0 +1,937 @@
+C    Loglan82 Compiler&Interpreter
+C     Copyright (C) 1981-1993 Institute of Informatics, University of Warsaw
+C     Copyright (C)  1993, 1994 LITA, Pau
+C     
+C     This program is free software; you can redistribute it and/or modify
+C     it under the terms of the GNU General Public License as published by
+C     the Free Software Foundation; either version 2 of the License, or
+C     (at your option) any later version.
+C     
+C     This program is distributed in the hope that it will be useful,
+C     but WITHOUT ANY WARRANTY; without even the implied warranty of
+C     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+C     GNU General Public License for more details. File: LICENSE.GNU
+C  ===============================================================     
+
+
+      SUBROUTINE WAN
+      IMPLICIT INTEGER (A-Z)
+      LOGICAL  INSYS,  OWN
+      COMMON /BLANK/ COM(278),
+     X	      LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X	      NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X	      NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X	      LOCAL , OWN   , OBJECT,
+     X	      IPMEM(5000)
+C
+C	      COM    - OBSZAR KOMUNIKACYJNY STRUMIENI
+C	      LMEM   - (=32000) ROZMIAR CALEJ PAMIECI GLOWNEJ
+C	      LPMEM  - PODZIAL PAMIECI NA CZESCI  IPMEM  I  ISMEM
+C	      IRECN  - INDEKS SZCZYTU STOSU STALYCH REAL
+C	      ISFIN  - INDEKS SZCZYTU SLOWNIKA PROTOTYPOW
+C
+C	      LPMSYS - INDEKS PIERWSZEGO SLOWA W IPMEM OBSZARU NIEPRZEZ-
+C		       NACZONEGO NA PROTOTYPY SYSTEMOWE
+C	      LPML   - INDEKS PIERWSZEGO SLOWA OBSZARU WOLNEGO W IPMEM
+C	      LPMF   - INDEKS OSTATNIEGO SLOWA WOLNEGO OBSZARU W IPMEM
+C
+C     IDENTYFIKATORY PROTOTYPOW SYSTEMOWYCH
+C	      NRINT  - IDENTYFIKATOR PROTOTYPU	INTEGER
+C	      NRRE   -				REAL
+C	      NRBOOL -				BOOLEAN
+C	      NRCHR  -				CHARACTER
+C	      NRCOR  -				COROUTINE
+C	      NRPROC -				PROCESS
+C	      NRTEXT -				STRING (TEXT)
+C	      NRUNIV - IDENTYFIKATOR PROTOTYPU UNIWERSALNEGO
+C	      NATTR  - IDENTYFIKATOR PSEUDO-ATRYBUTU (Z NUMEREM -1)
+C	      NRNONE - IDENTYFIKATOR PROTOTYPU TYPU NONE (UNIWERSALNY
+C		       REFERENCYJNY)
+C	      NBLSYS - IDENTYFIKATOR BLOKU SYSTEMOWEGO
+C	      NBLUS  -		     BLOKU GLOWNEGO UZYTKOWNIKA
+C
+C	      INSYS  - FLAGA SPOSOBU REZERWACJI (PRZEZ	MGETM) PAMIECI
+C		       W IPMEM - .TRUE. JESLI REZERWACJA W CZESCI SYSTE-
+C		       MOWEJ
+C	      LOCAL  - FLAGA DOSTEPU DO OBIEKTOW - 2 JESLI OBIEKT
+C	  BYL LOKALNY, 1 - GDY Z SL, 0 - GDY Z BLOKU GLOWNEGO
+C	      OWN    - FLAGA DOSTEPU DO OBIEKTOW - .TRUE. JESLI OBIEKT NIE
+C		       POCHODZI Z PREFIKSOW (TYLKO Z WLASCIWEGO OBIEKTU)
+C	      OBJECT - PROTOTYP OBIEKTU, Z KTOREGO POCHODZIL OSTATNIO
+C		      SZUKANY IDENTYFIKATOR (OBIEKT POCHODZACY Z CIAGU SL)
+C
+
+cdeb ----------- added ----------------------
+c  new common blockfor the debugger
+      common /debug/ deb,breakt(500),brnr,maxbr
+      logical deb
+c  deb = true - compilation with the debugger
+c  breakt - array of static break points
+c  brnr - index in breakt
+c  maxbr - maximal number of static break points
+cdeb ----------------------------------------
+
+      COMMON /MJLMSG/IERC,MSG
+
+      common /option/opt
+      character*4 msg
+
+cdsw  DATA IDENT /4HWAN /
+
+cdsw  MSG = IDENT
+      msg = 'wan '
+      IERC = 0
+      CALL DATA1
+cdeb
+      if(deb) call inbr
+cdeb
+      CALL E0
+      opt = com(2)
+      CALL END
+cdeb
+      if(deb) call endbr
+cdeb
+      CALL MESS
+      CALL IT1
+      END
+
+      SUBROUTINE DATA1
+      IMPLICIT INTEGER (A-Z)
+      character jfname(72)
+      common /jf/jfname(72),jf
+      integer*2 bigbuf
+      common /combuf/ ind, length, bigbuf(16000)
+C
+C  OPENS FILES
+C
+      LOGICAL  ERRFLG
+      COMMON /STREAM/ ERRFLG,LINE,IBUF2(265),BUF(7),ON,BUFOUT(256),
+     X		      POSIT,RECNR,NEXT
+      COMMON /LISTING/ OUTSTR(265)
+      COMMON /BUFF/ INSTR(265),BUFOR(85),LP,LN,MAX,POSTR(265),STATUS
+      COMMON /BLANK/
+     $	 C0M(4),
+     O	 S,	   ADRES,    K,        SCOMA,	 SDOT,	   SEMICOL,
+     1	 SCOLON,   SLEFT,    SRIGHT,   SBECOME,  STAR,	   SRELAT,
+     2	 SEOF,	   SIDENT,   SCONST,   SAND,	 SARRAY,   SARROF,
+     3	 SATTACH,  SBEGIN,   SBLOCK,   SBOOL,	 SCALL,    SCASE,
+     4	 SCLASS,   SCLOSE,   SCONS,    SCOPY,	 SCOROUT,  SDETACH,
+     5	 SDIM,	   SDO,      SDOWN,    SELSE,	 SEND,	   SESAC,
+     6	 SEXIT,    SEXTERN,  SFI,      SFOR,	 SFUNCT,   SIF,
+     7	 SINNER,   SINPUT,   SINT,     SKILL,	 SLOCK,    SNEW,
+     8	 SNONE,    SNOT,     SOD,      SOR,	 SORIF,    SOTHER,
+     9	 SOUTPUT,  SPREF,    SPRCD,    SQUA,	 SREAD,    SRESUME,
+     O	 SRETURN,  STEP,     STOP,     STAKEN,	 STHEN,    STHIS,
+     A	 STO,	   STYPE,    SUNIT,    SVAR,	 SVIRTUAL, SWAIT,
+     B	 SWHEN,    SWHILE,   SWRIT,    SWRITLN,  STRUE,    SALL,
+     C	 WAND,	   WARRAY,   WASSIGN,  WASSCON,  WATTACH,  WBLOCK,
+     D	 WCALL,    WCASE,    WCASEL,   WCOMA,	 WCNSTB,   WCNSTC,
+     E	 WCNSTI,   WCNSTN,   WCNSTR,   WCNST,	 WCOPY,    WDETACH,
+     F	 WDOT,	   WDOWNTO,  WEOF,     WESAC,	 WFIN,	   WFIRST,
+     G	 WFOREND,  WFORVAR,  WFROM,    WIDENT,	 WIFFALS,  WIFTRUE
+
+      common /BLANK/
+     H	 WINNER,   WINSTREND,WJUMP,    WKILL,	 WLABEL,   WLEFT,
+     I	 WLOCK,    WLOW,     WLSE,     WNEW,	 WNEWARRAY,WNOT,
+     J	 WOPERAT,  WOPT,     WOR,      WOTHER,	 WPREF,    WPRIM,
+     K	 WQUA,	   WREAD,    WRELAT,   WRESUME,  WRETURN,  WRIGHT,
+     L	 WSTART,   WSTEP,    WSTOP,    WTHIS,	 WTO,	   WAIT,
+     M	 WRITE,    WRITELN,  WBOUND,   UNICAL,
+     N	 COM(132),
+     O	 LMEM,	   LPMEM,    IRECN,    ISFIN,	 LPMSYS,   LPML,
+     P	 LPMF,	   NRINT,    NRRE,     NRBOOL,	 NRCHAR,   NRCOR,
+     Q	 NRPROC,   NRTEXT,   NRUNIV,   NATTR,	 NRNONE,   NBLSYS,
+     R	 NBLUS,    NEMPTY,   INSYS,    LOCAL,	 OWN,	   OBJECT,
+     S	 HASH(8000), M,        NAME(10), NLAST,    NL,
+     T	 KEYS(200),
+     U	 TRANS1(13,13),      TRANS2(13,13),	 B0,	   B(70),
+     V	 SKOK0,    SKOK(70), KK,       MM,	 STAN,	   STAN1,
+     W	 AUX,	   K1,	     SY,       SY1,	 NU,	   EXP,
+     X	 SIGN,	   INTPART,  FRAC,     OKEY,	 FRACT,    NB,
+     Y	 TL,	   BYTE,     TEXT(20),
+     Z	 TOP,	   IN,	     NEKST,    STACK(500)
+
+      common /BLANK/
+     *	 RESZTA(3652)
+
+cdsw   error !!!!
+      real fract, nu
+c
+      logical btest
+      character int2char
+
+cdeb ----------- added ----------------------
+c  new common blockfor the debugger
+      common /debug/ deb,breakt(500),brnr,maxbr
+      logical deb
+c  deb = true - compilation with the debugger
+c  breakt - array of static break points
+c  brnr - index in breakt
+c  maxbr - maximal number of static break points
+
+cdeb ----------------------------------------
+
+
+      DIMENSION W(63)
+      EQUIVALENCE (W(1),WAND)
+
+cdsw   kod spacji ascii
+      data data1hex /x'2020'/
+
+
+cdeb
+c   nadanie wartosci zmiennej deb - czy zapalona opcja S
+      deb = .false.
+      if(btest(c0m(2),13)) deb = .true.
+cdeb
+
+      DO 10 I=1,63
+10    W(I)=I
+      UNICAL = 3
+C ---
+c   unit 16 - roboczy listing (sequential )
+      call ffcrtmp(16)
+C --- WRITE LISTING OPTION FLAG
+      call ffwrhex(16, c0m(2))
+C ---
+      ERRFLG = .FALSE.
+
+cdsw *********** new file **************
+c  unit 18 - roboczy,sekwencyjny do kodu posredniego
+      call ffcrtmp(18)
+             
+c ------   unit 14 (buf) - kod posredni (direct)
+      CALL OPENF(BUF,14)
+      POSIT=1
+cdsw  RECNR=12
+cdsw  NEXT=13
+      recnr = 32
+      next = 33
+      call seek(buf,recnr)
+C     DATA BUFOR,LN,LP,MAX /85*4Z2020,0,81,81/
+      LN=0
+      LP=81
+      MAX=81
+
+      do 9997 jf=1,70
+      if (jfname(jf).eq.'.') go to 9998
+      if (jfname(jf).eq.' ') goto 9996
+9997  continue
+9996  if(jf+4.gt.70) goto 9991
+      jfname(jf) = '.'
+      jfname(jf+1) = 'l'
+      jfname(jf+2) = 'o'
+      jfname(jf+3) = 'g'
+9998  continue
+      jfname(jf+4) = int2char(0)
+9991  jfname(70) = int2char(0)
+c   unit 17 - input (sequential)
+      call ffopen(17,jfname(1))
+      length = 0
+      ind = 1
+
+      jfname(jf+1)='l'
+      jfname(jf+2)='c'
+      jfname(jf+3)='d'
+      jfname(jf+4)=int2char(0)
+      call ffcreat(15, jfname(1))
+
+      STATUS=0
+      DO 1 I=1,85
+1     BUFOR(I)=DATA1HEX
+      ON=49
+      BEGIN=1
+      IEND=0
+800   CALL READIN
+      I=1
+900   if(ord(bufor(i)).ne.ord(ichar(' '))) goto 1000
+      I=I+1
+      IF (I.GT.MAX) GOTO 800
+      GOTO 900
+1000  IF (BUFOR(I  ).NE.ICHAR('P').AND.BUFOR(I).NE.ICHAR('p'))
+     X GOTO 2500
+      IF (BUFOR(I+1).NE.ICHAR('R').AND.BUFOR(I+1).NE.ICHAR('r'))
+     X	GOTO 2500
+      IF (BUFOR(I+2).NE.ICHAR('O').AND.BUFOR(I+2).NE.ICHAR('o'))
+     X GOTO 2500
+      IF (BUFOR(I+3).NE.ICHAR('G').AND.BUFOR(I+3).NE.ICHAR('g'))
+     X GOTO 2500
+      IF (BUFOR(I+4).NE.ICHAR('R').AND.BUFOR(I+4).NE.ICHAR('r'))
+     X GOTO 2500
+      IF (BUFOR(I+5).NE.ICHAR('A').AND.BUFOR(I+5).NE.ICHAR('a'))
+     X GOTO 2500
+      IF (BUFOR(I+6).NE.ICHAR('M').AND.BUFOR(I+6).NE.ICHAR('m'))
+     X GOTO 2500
+      IF (BUFOR(I+7).EQ.1) GOTO 1100
+      if(ord(bufor(i+7)) .ne. ord(ichar(' '))) goto 2500
+1100  I=I+8
+      IF (I.LT.MAX) GOTO 1200
+1150  CALL READIN
+      I=1
+1200  if(ord(bufor(i)).ne.ord(ichar(' '))) goto 1300
+      I=I+1
+      IF (I.GT.MAX) GOTO 1150
+      GOTO 1200
+1300  BEGIN=I
+      IEND=I-1
+1350  IF ((ORD(BUFOR(I)).LT.10).OR.(ORD(BUFOR(I)).GT.35)) GOTO 1500
+1400  I=I+1
+      IF (BUFOR(I).GE.ICHAR('0').AND.BUFOR(I).LE.ICHAR('9')) GOTO 1400
+      GOTO 1350
+1500  IEND=I-1
+C
+C   INITIALIZE STRINGS OUTPUT TO LFILE WITH EMPTY STRING
+C
+
+2500  continue
+
+C write length of empty string
+      call ffwrite_ints(15, 0, 1)
+C write empty string itself
+      call ffwrite_ints(15, 0, 1)
+
+#if ! ( WSIZE == 4 )
+C     if H+
+      if (btest(c0m(2), 12)) call ffwrite_ints(15, 0, 1)
+#endif
+cbc
+C
+C   INITIATE THE TABLE OF REAL CONSTANTS
+C   THE TWO INITIAL CONSTANTS, WHICH ALWAYS RESIDE IN THE TABLE ARE
+C   0.0 AND 1.0
+C
+      EXP=EMBEDE(0.0)
+      EXP=EMBEDE(1.0)
+      LP=IEND+1
+      I=0
+      IF (IEND.LT.BEGIN) GOTO 3500
+      S=SBLOCK
+      GOTO 4000
+3500  IF (S.EQ.70) CALL ERROR(191)
+3550  CALL SCAN
+3600  IF (S.EQ.SBLOCK)	  GOTO 4000
+      I=1
+      IF (S.EQ.SBEGIN)	  GOTO 4000
+      IF (S.EQ.SUNIT)	  GOTO 4000
+      IF (S.EQ.SVAR)	  GOTO 4000
+      IF (S.EQ.SCONS)	  GOTO 4000
+      IF (S.EQ.SEND)	  GOTO 4000
+      IF (S.EQ.SPRCD)	  GOTO 4000
+      IF (S.EQ.SFUNCT)	  GOTO 4000
+      IF (S.EQ.SCLASS)	  GOTO 4000
+      IF (S.EQ.SIDENT)	  GOTO 3550
+      IF (S.EQ.STAKEN)	  GOTO 4000
+      IF (S.EQ.SCLOSE)	  GOTO 4000
+      IF (S.LT.25)	  GOTO 4000
+      IF (S.NE.70)	  GOTO 3550
+      CALL ERROR(136)
+4000  IF (I.EQ.1) CALL ERROR(137)
+      RETURN
+      END
+
+cdeb  new procedures
+
+      subroutine inbr
+      implicit integer(a-z)
+
+cdeb ----------- added ----------------------
+c  new common blockfor the debugger
+      common /debug/ deb,breakt(500),brnr,maxbr
+      logical deb
+c  deb = true - compilation with the debugger
+c  breakt - array of static break points
+c  brnr - index in breakt
+c  maxbr - maximal number of static break points
+cdeb ----------------------------------------
+
+      character jfname
+      character int2char
+      common /jf/ jfname(72), jf
+
+      brnr = 0
+      maxbr = 500
+      do 10 i=1,maxbr
+ 10   breakt(i) = 0
+c  file na hash, breakt, keys
+      jfname(jf+1) = 'd'
+      jfname(jf+2) = 'e'
+      jfname(jf+3) = 'b'
+      jfname(jf+4) = int2char(0)
+      call ffcreat(21, jfname(1))
+      return
+      end
+
+      subroutine addbr(l)
+      implicit integer(a-z)
+
+cdeb ----------- added ----------------------
+c  new common blockfor the debugger
+      common /debug/ deb,breakt(500),brnr,maxbr
+      logical deb
+c  deb = true - compilation with the debugger
+c  breakt - array of static break points
+c  brnr - index in breakt
+c  maxbr - maximal number of static break points
+cdeb ----------------------------------------
+
+c   wstawia do breakt linie o  numerze l
+
+      if(.not. deb) return
+      do 100 i=1,brnr
+c  czy juz jest
+      if(l.eq.breakt(i)) return
+100   continue
+c  nowy punkt lamiacy
+      if(brnr.ge.maxbr) return
+c  nadmiarowe punkty lamiace sa ignorowane
+      brnr = brnr+1
+      breakt(brnr) = l
+      return
+      end
+
+      subroutine endbr
+      implicit integer(a-z)
+      common /BLANK/ com(302),
+     x		hash(8000), dow(13), keys(200),
+     x		rest(2000)
+
+cdeb ----------- added ----------------------
+c  new common blockfor the debugger
+      common /debug/ deb,breakt(500),brnr,maxbr
+      logical deb
+c  deb = true - compilation with the debugger
+c  breakt - array of static break points
+c  brnr - index in breakt
+c  maxbr - maximal number of static break points
+cdeb ----------------------------------------
+
+c  wypisuje na plik 21 tablice hash
+      call ffwrite_ints(21, hash, 8000)
+cps      call ffwrite_ints(21, keys, 200)
+cps      call ffwrite_ints(21, brnr, 1)
+cps      call ffwrite_ints(21, breakt, brnr)
+      return
+      end
+
+cdeb
+
+
+      SUBROUTINE PEND
+      IMPLICIT INTEGER (A-Z)
+      logical errflg
+      integer endmsg(20)
+      character*40 endms1
+      equivalence (endmsg(1), endms1)
+      COMMON /LISTING/ OUTSTR(265)
+      COMMON /STREAM/ ERRFLG,LINE,IBUF2(265),IBUF3(7),ON,JUNK(259)
+      COMMON /BUFF/ INSTR(265),BUFOR(85),LP,LN,MAX,JNK(266)
+      COMMON /BLANK/ C0M(4)
+      LOGICAL BTEST
+      character int2char
+      data endms1 /'end of parsing -------------------------'/
+      LN=LN+1
+      call ffwrhex(16, ln)
+c
+      IF (BTEST(C0M(2),15)) GOTO 1
+      call ffwrite_char(16, '0')
+c
+      GOTO 2
+1     call ffwrite_char(16, '1')   
+c
+2     CONTINUE
+      call ffwrite(16, endmsg(1), 40)
+c end of line - write CR/LF
+      call ffwrite_char(16, int2char(13))
+      call ffwrite_char(16, int2char(10))
+3     IF (BUFOR(1).EQ.2) RETURN
+      CALL READIN
+      GOTO 3
+      END
+
+
+
+
+      SUBROUTINE E0
+C  ORGANIZATION OF THE STACK:
+C     STACK(TOP)   - STACK TOP FOR THE INVOKING MODULE
+C     STACK(TOP+1) - NUMBER OF THE INVOKING MODULEY
+C     STACK(TOP+2) - NUMBER OF THE RETURN POINT TO THE INVOKING MODULE
+C  THE LOCAL VARIABLES, IF ANY ARE USED IN THE MODULE, ARE ALLOCATED ON THE
+C  STACK STARTING FROM TOP+3 UP.
+C  AN INVOKING MODULE HAS TO APPROPRIATELY INCREMENT THE TOP OF THE STACK
+C  RESPECTING ITS LOCAL VARIABLES, THEN STORE ITS NUMBER AND RETURN POINT
+C  ON THE STACK AND TRANSFER THE CONTROL TO THE SUPERVISING PROGRAM (RETURN).
+C  AFTER RETURN FROM THE CALLED PROGRAM THE STACK TOP IS APPROPRIATELY
+C  RESET BY THE SUPERVISING PROGRAM.
+C  THE PATTERN OF TRANSFERRING CONTROL:
+C     NEXT= N	-  CONTROL TO BE PASSED TO THE MODULE NUMBER N;
+C     NEXT= 0	-  RETURN TO THE CALLER.
+C  UPON ENTRY TO A SUBPROGRAM
+C  PARAMETER - KEEPS THE NUMBER OF PLACE FROM WHICH THE COMPUTATIONS HAVE TO
+C  BE CONTINUED
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BLANK/
+     $	 C0M(4),
+     O	 S,	   ADRES,    K,        SCOMA,	 SDOT,	   SEMICOL,
+     1	 SCOLON,   SLEFT,    SRIGHT,   SBECOME,  STAR,	   SRELAT,
+     2	 SEOF,	   SIDENT,   SCONST,   SAND,	 SARRAY,   SARROF,
+     3	 SATTACH,  SBEGIN,   SBLOCK,   SBOOL,	 SCALL,    SCASE,
+     4	 SCLASS,   SCLOSE,   SCONS,    SCOPY,	 SCOROUT,  SDETACH,
+     5	 SDIM,	   SDO,      SDOWN,    SELSE,	 SEND,	   SESAC,
+     6	 SEXIT,    SEXTERN,  SFI,      SFOR,	 SFUNCT,   SIF,
+     7	 SINNER,   SINPUT,   SINT,     SKILL,	 SLOCK,    SNEW,
+     8	 SNONE,    SNOT,     SOD,      SOR,	 SORIF,    SOTHER,
+     9	 SOUTPUT,  SPREF,    SPRCD,    SQUA,	 SREAD,    SRESUME,
+     O	 SRETURN,  STEP,     STOP,     STAKEN,	 STHEN,    STHIS,
+     A	 STO,	   STYPE,    SUNIT,    SVAR,	 SVIRTUAL, SWAIT,
+     B	 SWHEN,    SWHILE,   SWRIT,    SWRITLN,  STRUE,    SALL,
+     C	 WAND,	   WARRAY,   WASSIGN,  WASSCON,  WATTACH,  WBLOCK,
+     D	 WCALL,    WCASE,    WCASEL,   WCOMA,	 WCNSTB,   WCNSTC,
+     E	 WCNSTI,   WCNSTN,   WCNSTR,   WCNST,	 WCOPY,    WDETACH,
+     F	 WDOT,	   WDOWNTO,  WEOF,     WESAC,	 WFIN,	   WFIRST,
+     G	 WFOREND,  WFORVAR,  WFROM,    WIDENT,	 WIFFALS,  WIFTRUE
+
+      common /BLANK/
+     H	 WINNER,   WINSTREND,WJUMP,    WKILL,	 WLABEL,   WLEFT,
+     I	 WLOCK,    WLOW,     WLSE,     WNEW,	 WNEWARRAY,WNOT,
+     J	 WOPERAT,  WOPT,     WOR,      WOTHER,	 WPREF,    WPRIM,
+     K	 WQUA,	   WREAD,    WRELAT,   WRESUME,  WRETURN,  WRIGHT,
+     L	 WSTART,   WSTEP,    WSTOP,    WTHIS,	 WTO,	   WAIT,
+     M	 WRITE,    WRITELN,  WBOUND,   UNICAL,
+     N	 COM(132),
+     O	 LMEM,	   LPMEM,    IRECN,    ISFIN,	 LPMSYS,   LPML,
+     P	 LPMF,	   NRINT,    NRRE,     NRBOOL,	 NRCHAR,   NRCOR,
+     Q	 NRPROC,   NRTEXT,   NRUNIV,   NATTR,	 NRNONE,   NBLSYS,
+     R	 NBLUS,    NEMPTY,   INSYS,    LOCAL,	 OWN,	   OBJECT,
+     $   scaner(8735)
+cdsw $	 SCANER(3735),
+
+      common /BLANK/
+     Z	 TOP,	   IN,	     NEXT,     STACK(500),
+     *	 RESZTA(3652)
+      STACK(1)=0
+      STACK(2)=0
+      STACK(3)=0
+      TOP=1
+C  NOTE: THE FIRST CALL OF E11, I.E. FOR THE MAIN BLOCK, IS NON-STANDARD.
+C	 IN IS ASSIGNED VALUE 5 INSTEAD OF STANDARD (1). THIS FACILITATES
+C	 THE TEXT ANALYSIS OF A PROGRAM WHICH DOESN-T START WITH 'BLOCK'.
+      IN = 5
+      NEXT=11
+      IF (S.EQ.70) GOTO 10025
+      IF (S.NE.SBLOCK) CALL ERROR(122)
+      CALL OUTPUT(WBLOCK,ISFIN)
+      STACK(TOP+4)=0
+      GOTO 110
+C   E11 IS CALLED WITH THE PARAMETER (TOP+4)=0, WHICH MEANS THAT NO PREFIX
+C   IS SPECIFIED. E11 ANALYSES THE ENTIRE SYNTACTICAL UNIT.
+10    CALL E1
+      GOTO 1000
+20    CALL E2
+      GOTO 1000
+30    CALL E3
+      GOTO 1000
+40    CALL E4
+      GOTO 1000
+50    CALL E5
+      GOTO 1000
+60    CALL E6
+      GOTO 1000
+70    CALL E7
+      GOTO 1000
+80    CALL E8
+      GOTO 1000
+90    CALL E9
+      GOTO 1000
+100   CALL E10
+      GOTO 1000
+110   CALL E11
+      GOTO 1000
+120   CALL E12
+      GOTO 1000
+130   CALL E13
+1000  IN = 1
+      IF (NEXT.EQ.0) GOTO 1002
+1001  CONTINUE
+      GOTO (10,20,30,40,50,60,70,80,90,100,110,120,130),NEXT
+1002  IN = STACK(TOP+2)
+      NEXT = STACK(TOP+1)
+      TOP = STACK(TOP)
+      IF (TOP.GT.0) GOTO 1001
+10025 CALL PEND
+      RETURN
+      END
+
+      SUBROUTINE E1
+C  E1 - RECOGNIZES BOOLEAN EXPRESSION
+C  LOCAL VARIABLES:
+C    STACK(TOP+3) - NUMBER OF RECOGNIZED AND-S
+C    STACK(TOP+4) - NUMBER OF RECOGNIZED OR-S
+C    STACK(TOP+5) - RELATION CODE
+C    STACK(TOP+6) - 1 IFF 'NOT' HAS BEEN ENCOUNTERED, 0 IN THE OPPOSITE CASE
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BLANK/
+     $	 C0M(4),
+     O	 S,	   ADRES,    K,        SCOMA,	 SDOT,	   SEMICOL,
+     1	 SCOLON,   SLEFT,    SRIGHT,   SBECOME,  STAR,	   SRELAT,
+     2	 SEOF,	   SIDENT,   SCONST,   SAND,	 SARRAY,   SARROF,
+     3	 SATTACH,  SBEGIN,   SBLOCK,   SBOOL,	 SCALL,    SCASE,
+     4	 SCLASS,   SCLOSE,   SCONS,    SCOPY,	 SCOROUT,  SDETACH,
+     5	 SDIM,	   SDO,      SDOWN,    SELSE,	 SEND,	   SESAC,
+     6	 SEXIT,    SEXTERN,  SFI,      SFOR,	 SFUNCT,   SIF,
+     7	 SINNER,   SINPUT,   SINT,     SKILL,	 SLOCK,    SNEW,
+     8	 SNONE,    SNOT,     SOD,      SOR,	 SORIF,    SOTHER,
+     9	 SOUTPUT,  SPREF,    SPRCD,    SQUA,	 SREAD,    SRESUME,
+     O	 SRETURN,  STEP,     STOP,     STAKEN,	 STHEN,    STHIS,
+     A	 STO,	   STYPE,    SUNIT,    SVAR,	 SVIRTUAL, SWAIT,
+     B	 SWHEN,    SWHILE,   SWRIT,    SWRITLN,  STRUE,    SALL,
+     C	 WAND,	   WARRAY,   WASSIGN,  WASSCON,  WATTACH,  WBLOCK,
+     D	 WCALL,    WCASE,    WCASEL,   WCOMA,	 WCNSTB,   WCNSTC,
+     E	 WCNSTI,   WCNSTN,   WCNSTR,   WCNST,	 WCOPY,    WDETACH,
+     F	 WDOT,	   WDOWNTO,  WEOF,     WESAC,	 WFIN,	   WFIRST,
+     G	 WFOREND,  WFORVAR,  WFROM,    WIDENT,	 WIFFALS,  WIFTRUE
+
+       common /BLANK/
+     H	 WINNER,   WINSTREND,WJUMP,    WKILL,	 WLABEL,   WLEFT,
+     I	 WLOCK,    WLOW,     WLSE,     WNEW,	 WNEWARRAY,WNOT,
+     J	 WOPERAT,  WOPT,     WOR,      WOTHER,	 WPREF,    WPRIM,
+     K	 WQUA,	   WREAD,    WRELAT,   WRESUME,  WRETURN,  WRIGHT,
+     L	 WSTART,   WSTEP,    WSTOP,    WTHIS,	 WTO,	   WAIT,
+     M	 WRITE,    WRITELN,  WBOUND,   UNICAL,
+     N	 COM(132),
+     O	 LMEM,	   LPMEM,    IRECN,    ISFIN,	 LPMSYS,   LPML,
+     P	 LPMF,	   NRINT,    NRRE,     NRBOOL,	 NRCHAR,   NRCOR,
+     Q	 NRPROC,   NRTEXT,   NRUNIV,   NATTR,	 NRNONE,   NBLSYS,
+     R	 NBLUS,    NEMPTY,   INSYS,    LOCAL,	 OWN,	   OBJECT,
+     $   scaner(8735)
+cdsw $	 SCANER(3735)
+
+      common /BLANK/
+     Z	 TOP,	   IN,	     NEXT,     STACK(500),
+     *	 RESZTA(3652)
+cdsw  INTEGER WEOF0,WEOF1,WEOLN0,WEOLN1
+cdsw  DATA WEOF0,WEOF1,WEOLN0,WEOLN1/79,80,85,86/
+      DATA SEOFSI/60/
+      GOTO (10,20,30,40),IN
+10    STACK(TOP+4)=0
+411   STACK(TOP+4)=STACK(TOP+4)+1
+      IF (STACK(TOP+4).GT.1) CALL SCAN
+      STACK(TOP+3)=0
+420   STACK(TOP+3)=STACK(TOP+3)+1
+      IF (STACK(TOP+3).GT.1) CALL SCAN
+      STACK(TOP+6)=0
+      IF (S.NE.SNOT) GOTO 400
+      STACK(TOP+6)=1
+      CALL SCAN
+400   IF (S.NE.STRUE) GOTO 401
+C  A BOOLEAN CONSTANT HAS BEEN ENCOUNTERED. ITS WRITING OUT IS SPLIT
+C  INTO TWO STAGES BECAUSE THE VALUE TRUE (-1) CANNOT STAND FOR THE
+C  SECOND PARAMETER OF THE WRITING PROCEDURE (OUTPUT).
+      CALL OUTPUT(WCNSTB,-1)
+      CALL OUTPUT(1-ADRES,-1)
+      CALL SCAN
+      GOTO 300
+401   IF (S.NE.SEOFSI) GOTO 402
+      IF (ADRES.NE.1) ADRES=7
+C  79+7-1=85
+      STACK(TOP+5)=SEOFSI+18+ADRES
+      CALL SCAN
+      IF (S.NE.SLEFT) GOTO 444
+      STACK(TOP+5)=STACK(TOP+5)+1
+      CALL SCAN
+      CALL SLAD(4,1,4)
+      NEXT=3
+      RETURN
+C CALL OBJECTEXPRESSION /E3/
+40    IF (S.EQ.SRIGHT) GOTO 430
+      CALL ERROR(107)
+      GOTO 444
+430   CALL SCAN
+444   CALL OUTPUT(STACK(TOP+5),-1)
+      GOTO 300
+C
+402   CALL SLAD(4,1,2)
+      NEXT=2
+C  CALL E2 - ARITHMETIC EXPRESSION
+      RETURN
+20    IF (S.NE.SRELAT) GOTO 300
+      IF (ADRES.GT.2) GOTO 22
+C  RECOGNIZED RELATION IS OR IN
+      STACK(TOP+5)=ADRES
+      CALL SCAN
+      IF (S.EQ.SCOROUT) GOTO 205
+      IF (S.EQ.SIDENT) GOTO 21
+      CALL ERROR(109)
+      ADRES=0
+      GOTO 21
+205   CALL OUTPUT(WIDENT,K)
+C  FOR "PROCESS", "COROUTINE" THE HASH ADDRESS IS PASSED BY K
+      GOTO 215
+21    CALL OUTPUT(WIDENT,ADRES)
+215   CALL SCAN
+      CALL OUTPUT(WRELAT,STACK(TOP+5))
+      GOTO 300
+22    STACK(TOP+5)=ADRES
+      CALL SCAN
+      CALL SLAD(4,1,3)
+      NEXT=2
+C  NEXT CALL FOR E2 - ARITHMETIC EXPRESSION
+      RETURN
+30    CALL OUTPUT(WRELAT,STACK(TOP+5))
+300   IF (STACK(TOP+6).EQ.1) CALL OUTPUT(WNOT,-1)
+      IF (STACK(TOP+3).GT.1) CALL OUTPUT(WAND,-1)
+      IF (S.EQ.SAND) GOTO 420
+      IF (STACK(TOP+4).GT.1) CALL OUTPUT(WOR,-1)
+      IF (S.EQ.SOR) GOTO 411
+      NEXT=0
+      RETURN
+      END
+      SUBROUTINE E2
+C
+C  E2 - RECOGNIZES ARITHMETIC EXPRESSION
+C  LOKAL VARIABLES:
+C    STACK(TOP+3) - MULTIPLICATIVE (HIGHER PRIORITY) OPERATOR
+C    STACK(TOP+4) - ADDITIVE (LOWER PRIORITY) OPERATOR
+C    STACK(TOP+5) - CONTAINS 1 IF SIGN CHANGE IS REQUIRED, 0 IF NOT,
+C    STACK(TOP+6) - CONTAINS 1 IF "ABS" HAS OCCURRED,
+C    STACK(TOP+7) - KEEPS LOWER/UPPER OPERATOR KIND,
+C    STACK(TOP+8) - INCLUDES 1 IF THE VARIABLE AFTER LOWER/UPPER IS IN
+C		    PARANTHESES.
+C	     NOTE:  THE LAST TWO FIELDS ARE ONLY USED IF THE PERTINET
+C		    OPERATOR HAS BEEN ENCOUNTERED. THUS THIS PROCEDURE MAY
+C		    BE INVOKED WITH DIFFERENT SIZES OF THE AREA FOR LOCAL
+C		    VARIABLES, DEPENDING ON THE CONTENTS.
+C
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BLANK/
+     $	 C0M(4),
+     O	 S,	   ADRES,    K,        SCOMA,	 SDOT,	   SEMICOL,
+     1	 SCOLON,   SLEFT,    SRIGHT,   SBECOME,  STAR,	   SRELAT,
+     2	 SEOF,	   SIDENT,   SCONST,   SAND,	 SARRAY,   SARROF,
+     3	 SATTACH,  SBEGIN,   SBLOCK,   SBOOL,	 SCALL,    SCASE,
+     4	 SCLASS,   SCLOSE,   SCONS,    SCOPY,	 SCOROUT,  SDETACH,
+     5	 SDIM,	   SDO,      SDOWN,    SELSE,	 SEND,	   SESAC,
+     6	 SEXIT,    SEXTERN,  SFI,      SFOR,	 SFUNCT,   SIF,
+     7	 SINNER,   SINPUT,   SINT,     SKILL,	 SLOCK,    SNEW,
+     8	 SNONE,    SNOT,     SOD,      SOR,	 SORIF,    SOTHER,
+     9	 SOUTPUT,  SPREF,    SPRCD,    SQUA,	 SREAD,    SRESUME,
+     O	 SRETURN,  STEP,     STOP,     STAKEN,	 STHEN,    STHIS,
+     A	 STO,	   STYPE,    SUNIT,    SVAR,	 SVIRTUAL, SWAIT,
+     B	 SWHEN,    SWHILE,   SWRIT,    SWRITLN,  STRUE,    SALL,
+     C	 WAND,	   WARRAY,   WASSIGN,  WASSCON,  WATTACH,  WBLOCK,
+     D	 WCALL,    WCASE,    WCASEL,   WCOMA,	 WCNSTB,   WCNSTC,
+     E	 WCNSTI,   WCNSTN,   WCNSTR,   WCNST,	 WCOPY,    WDETACH,
+     F	 WDOT,	   WDOWNTO,  WEOF,     WESAC,	 WFIN,	   WFIRST,
+     G	 WFOREND,  WFORVAR,  WFROM,    WIDENT,	 WIFFALS,  WIFTRUE
+
+      common /BLANK/
+     H	 WINNER,   WINSTREND,WJUMP,    WKILL,	 WLABEL,   WLEFT,
+     I	 WLOCK,    WLOW,     WLSE,     WNEW,	 WNEWARRAY,WNOT,
+     J	 WOPERAT,  WOPT,     WOR,      WOTHER,	 WPREF,    WPRIM,
+     K	 WQUA,	   WREAD,    WRELAT,   WRESUME,  WRETURN,  WRIGHT,
+     L	 WSTART,   WSTEP,    WSTOP,    WTHIS,	 WTO,	   WAIT,
+     M	 WRITE,    WRITELN,  WBOUND,   UNICAL,
+     N	 COM(132),
+     O	 LMEM,	   LPMEM,    IRECN,    ISFIN,	 LPMSYS,   LPML,
+     P	 LPMF,	   NRINT,    NRRE,     NRBOOL,	 NRCHAR,   NRCOR,
+     Q	 NRPROC,   NRTEXT,   NRUNIV,   NATTR,	 NRNONE,   NBLSYS,
+     R	 NBLUS,    NEMPTY,   INSYS,    LOCAL,	 OWN,	   OBJECT,
+     $   scaner(8735)
+cdsw $	 SCANER(3735),
+
+      common /BLANK/
+     Z	 TOP,	   IN,	     NEXT,     STACK(500),
+     *	 RESZTA(3652)
+      EQUIVALENCE (WEOF,WSIGN)
+      DATA SLOWUP,WLOWER /79,64/
+      DATA SIGN/58/
+C**********************************************************************
+C****** SLOWUP, WLOWER, WUPPER SHOUD BE PUT INTO BLANK
+C****** COMMON AT THE NEAREST OPPORTUNITY.
+C****** *********** 13.01.1982 *************
+C**********************************************************************
+      GOTO (10,20,30,40,50),IN
+C
+C  INITIALIZE LOCAL VARIABLES
+C
+10    STACK(TOP+4)=0
+      STACK(TOP+5)=0
+      STACK(TOP+6)=0
+C
+C  CHECK FOR MINUS (-)
+C
+      IF (S.NE.STAR) GOTO 100
+      IF (ADRES.GT.4) GOTO 80
+      GOTO (100,100,70,75),ADRES
+C
+C  THERE WAS MINUS
+C
+75    STACK(TOP+5)=1
+      GOTO 90
+C
+C  PLUS (+) ENCOUNTERED
+C
+70    CALL SCAN
+      GOTO 100
+C
+C  THE EXPRESSION STARTS WITH * , / , DIV , MOD
+C
+80    CALL ERROR(126)
+90    CALL SCAN
+100   STACK(TOP+3)=0
+C
+C  START OF ANALYSING A SUM COMPONENT
+C
+110   IF (STACK(TOP+4).NE.0) CALL SCAN
+C
+C  START OF ANALYSING A MULTIPLICATIVE COMPONENT
+C
+120   IF (STACK(TOP+3).NE.0) CALL SCAN
+C
+C  CHECK FOR ABS
+C
+      IF (S.NE.STAR) GOTO 122
+      IF (ADRES.NE.1) GOTO 122
+C
+C  ABS ENCOUNTERED
+C
+      STACK(TOP+6)=1
+      CALL SCAN
+C
+C  CHECK FOR A CONSTANT, IF AFFIRMATIVE THEN RECOGNIZE ITS TYPE
+C
+122   IF (S.NE.SCONST) GOTO 130
+      GOTO (210,210,125,127,123,128),K
+C
+C  REAL CONSTANT
+C
+123   CALL OUTPUT(WCNSTR,ADRES)
+      CALL SCAN
+      GOTO 180
+C
+C  INTEGER CONSTANT
+C
+125   CALL OUTPUT(WCNSTI,ADRES)
+      CALL SCAN
+      GOTO 180
+C
+C  STRING CONSTANT
+C
+127   CALL OUTPUT(WCNST,ADRES)
+      GOTO 129
+C
+C  CHARACTER CONSTANT
+C
+128   CALL OUTPUT(WCNSTC,ADRES)
+129   CALL SCAN
+C
+C  CHECK AGAINST AN OCCURRENCE OF A STRING/CHAR CONSTANT WITHIN AN EXPRESSION
+C
+      IF (STACK(TOP+3)+STACK(TOP+4)+STACK(TOP+5)+STACK(TOP+6).NE.0)
+     X			   CALL ERROR(115)
+      GOTO 210
+C
+C  CHECK IF THE MULTIPLICATIVE COMPONENT IS AN EXPRESSION
+C
+130   IF (S.NE.SLEFT) GOTO 160
+      CALL SCAN
+      CALL SLAD(4,2,2)
+      NEXT=1
+      RETURN
+C
+C  CALL E1 - BOOLEAN EXPRESSION
+C  AFTER RETURN CHECK IF THE EXPRESSION IS TERMINATED BY THEW RIGHT
+C  PARANTHESIS
+C
+20    IF (S.EQ.SRIGHT) GOTO 140
+      CALL ERROR(101)
+      GOTO 180
+140   CALL SCAN
+      GOTO 180
+160   IF (S.EQ.SLOWUP) GOTO 170
+      IF (S.EQ.SIGN)   GOTO 165
+      CALL SLAD(4,2,3)
+      NEXT=3
+C
+C  CALL E3 - OBJECTEXPRESSION TO ANALYSE THE VARIABLE
+C  RETURN TO LABEL 30 BELOW - JUMP OPTIMIZATION
+C
+      RETURN
+C
+C  "SIGN" ENCOUNTERED, ARITHMETIC EXPRESSION SHOULD FOLOW.
+C
+165   CALL SCAN
+      CALL SLAD(5,2,5)
+      NEXT=1
+      RETURN
+C
+C  CALL E1 TO ANALYSE THE EXPRESSION
+C
+50    CALL OUTPUT(WSIGN,-1)
+      GOTO 180
+C
+C  LOWER/UPPER HAS BEEN ENCOUNTERED. WE HAVE TO REMEMBER WHICH ONE AND CALL
+C  OBJECTEXPRESSION TO ANALYSE THE VARIABLE. THE LOCAL VARIABLE FIELD IS
+C  INCREASED TO 5 VARIABLES.
+C
+170   STACK(TOP+7)=ADRES
+      CALL SCAN
+      STACK(TOP+8)=0
+      IF (S.NE.SLEFT) GOTO 172
+C				       THERE WAS A LEFT PARANTHESIS
+      STACK(TOP+8)=1
+      CALL SCAN
+172   CALL SLAD(6,2,4)
+      NEXT=3
+      RETURN
+C  CALL E3 - OBJECT EXPRESSION, AFTER RETURN THE OPERATOR TYPE
+C  (LOWER/UPPER) IS TO BE WRITTEN
+40    CALL OUTPUT(WLOWER+STACK(TOP+7)-1,-1)
+      IF (STACK(TOP+8).EQ.0) GOTO 30
+      IF (S.EQ.SRIGHT) GOTO 44
+C				      NO MATCHING RIGHT PARANTHESIS
+      CALL ERROR(101)
+      GOTO 30
+44    CALL SCAN
+30    CONTINUE
+180   IF (STACK(TOP+6).NE.1) GOTO 185
+C
+C  ABS BEFORE THE MULTIPLICATIVE COMPONENT
+C
+      CALL OUTPUT(WOPERAT,1)
+      STACK(TOP+6)=0
+185   IF (STACK(TOP+5).NE.1) GOTO 190
+C
+C  MINUS BEFORE THE MULTIPLICATIVE COMPONENT
+C
+      CALL OUTPUT(WOPERAT,2)
+      STACK(TOP+5)=0
+190   IF (STACK(TOP+3).NE.0) CALL OUTPUT(WOPERAT,STACK(TOP+3))
+      STACK(TOP+3)=0
+C
+C  AND OF THE ANALYSIS OF THE COMPONENT, CHECK WHETHER MORE COMPONENTS ARE
+C  EXPECTED, E.G. IF THERE OCCURRS * , / , DIV , MOD
+C
+      IF (S.NE.STAR) GOTO 200
+      IF (ADRES.LT.5) GOTO 200
+      STACK(TOP+3)=ADRES
+      GOTO 120
+C
+C  END OF MULTIPLICATIVE SEQUENCE
+C
+200   IF (STACK(TOP+4).NE.0) CALL OUTPUT(WOPERAT,STACK(TOP+4))
+      STACK(TOP+4)=0
+C
+C  END OF AN ADDITIVE COMPONENT, CHECK FOR MORE (+,-)
+C
+      IF (S.NE.STAR) GOTO 210
+      IF (ADRES.LT.3) GOTO 210
+      STACK(TOP+4)=ADRES
+      GOTO 110
+C
+C  END OF ADDITIVE SEQUENCE
+C
+210   NEXT=0
+      RETURN
+      END
+

@@ -1,0 +1,915 @@
+C    Loglan82 Compiler&Interpreter
+C     Copyright (C) 1981-1993 Institute of Informatics, University of Warsaw
+C     Copyright (C)  1993, 1994 LITA, Pau
+C     
+C     This program is free software; you can redistribute it and/or modify
+C     it under the terms of the GNU General Public License as published by
+C     the Free Software Foundation; either version 2 of the License, or
+C     (at your option) any later version.
+C     
+C     This program is distributed in the hope that it will be useful,
+C     but WITHOUT ANY WARRANTY; without even the implied warranty of
+C     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+C     GNU General Public License for more details. File: LICENSE.GNU
+C  ===============================================================     
+
+      SUBROUTINE SCAN
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BUFF/ INSTR(265),BUFOR(85),LP,LN,MAX,JNK(266)
+      COMMON /STREAM/ ERRFLG,LINE,IBUF2(265),IBUF3(7),ON,JUNK(259)
+      COMMON /BLANK/
+     $	 C0M(4),
+     O	 S,	   ADRES,    K,        SCOMA,	 SDOT,	   SEMICOL,
+     1	 SCOLON,   SLEFT,    SRIGHT,   SBECOME,  STAR,	   SRELAT,
+     2	 SEOF,	   SIDENT,   SCONST,   SAND,	 SARRAY,   SARROF,
+     3	 SATTACH,  SBEGIN,   SBLOCK,   SBOOL,	 SCALL,    SCASE,
+     4	 SCLASS,   SCLOSE,   SCONS,    SCOPY,	 SCOROUT,  SDETACH,
+     5	 SDIM,	   SDO,      SDOWN,    SELSE,	 SEND,	   SESAC,
+     6	 SEXIT,    SEXTERN,  SFI,      SFOR,	 SFUNCT,   SIF,
+     7	 SINNER,   SINPUT,   SINT,     SKILL,	 SLOCK,    SNEW,
+     8	 SNONE,    SNOT,     SOD,      SOR,	 SORIF,    SOTHER,
+     9	 SOUTPUT,  SPREF,    SPRCD,    SQUA,	 SREAD,    SRESUME,
+     O	 SRETURN,  STEP,     STOP,     STAKEN,	 STHEN,    STHIS,
+     A	 STO,	   STYPE,    SUNIT,    SVAR,	 SVIRTUAL, SWAIT,
+     B	 SWHEN,    SWHILE,   SWRIT,    SWRITLN,  STRUE,    SALL,
+     C	 WAND,	   WARRAY,   WASSIGN,  WASSCON,  WATTACH,  WBLOCK,
+     D	 WCALL,    WCASE,    WCASEL,   WCOMA,	 WCNSTB,   WCNSTC,
+     E	 WCNSTI,   WCNSTN,   WCNSTR,   WCNST,	 WCOPY,    WDETACH,
+     F	 WDOT,	   WDOWNTO,  WEOF,     WESAC,	 WFIN,	   WFIRST,
+     G	 WFOREND,  WFORVAR,  WFROM,    WIDENT,	 WIFFALS,  WIFTRUE
+
+      common /BLANK/
+     H	 WINNER,   WINSTREND,WJUMP,    WKILL,	 WLABEL,   WLEFT,
+     I	 WLOCK,    WLOW,     WLSE,     WNEW,	 WNEWARRAY,WNOT,
+     J	 WOPERAT,  WOPT,     WOR,      WOTHER,	 WPREF,    WPRIM,
+     K	 WQUA,	   WREAD,    WRELAT,   WRESUME,  WRETURN,  WRIGHT,
+     L	 WSTART,   WSTEP,    WSTOP,    WTHIS,	 WTO,	   WAIT,
+     M	 WRITE,    WRITELN,  WBOUND,   UNICAL,
+     N	 COM(132),
+     O	 LMEM,	   LPMEM,    IRECN,    ISFIN,	 LPMSYS,   LPML,
+     P	 LPMF,	   NRINT,    NRRE,     NRBOOL,	 NRCHAR,   NRCOR,
+     Q	 NRPROC,   NRTEXT,   NRUNIV,   NATTR,	 NRNONE,   NBLSYS,
+     R	 NBLUS,    NEMPTY,   INSYS,    LOCAL,	 OWN,	   OBJECT,
+     S	 HASH(8000), M,        NAME(10), NLAST,    NL,
+     T	 KEYS(200),
+     U	 TRANS1(13,13),      TRANS2(13,13),	 B0,	   B(70),
+     V	 SKOK0,    SKOK(70), KK,       MM,	 STAN,	   STAN1,
+     W	 AUX,	   K1,	     SY,       SY1,	 NU, JK1,  EXP,
+     X	 SIGN,	   INTPART,  FRAC,     OKEY,	 FRACT,JK2,NB,
+     Y	 TL,	   BYTE,     TEXT(20),
+     Z	 TOP,	   IN,	     NEXT,     STACK(500)
+
+      common /BLANK/
+     *	 RESZTA(3652)
+
+      REAL   FRACT,NU
+cdsw&bc
+      logical overfl
+      LOGICAL OK,OKEY
+      INTEGER SD,SE,SL,SR,SS,ST
+      data sd,se,sl,sr,ss,st /2,61,40,41,47,42/
+      DATA SCANHEX /x'7FFF'/
+C
+      overfl = .FALSE.
+      OK=.FALSE.
+      IF (.NOT.OKEY) GOTO 111
+      K=K1
+      IF (SY.EQ.70) GOTO 3001
+C	 INSERTED DUE TO T.SZCZEPANEK
+      SY=SY1
+      OKEY=.FALSE.
+      GOTO 2000
+101   CALL ERROR(111)
+      LP=LP+1
+111   IF (LP.LT.MAX) GOTO 1
+      CALL READIN
+1     IF (BUFOR(1).EQ.SD) GOTO 3001
+      Z=BUFOR(LP)
+      ZNAK=ORD(Z)
+C  ZNAK MEANS CHARACTER
+      IF (STAN.LT.10) GOTO 10
+C  WITHIN COMMENT - COMPOUND SYMBOLS ARE NOT PICKED UP
+C  THE SAME FOR TEXT AND CHARACTER CONSTANTS
+      IF (STAN.EQ.11) GOTO 11
+      GOTO 8
+10    IF (ZNAK.EQ.63) GOTO 101
+11    I=SKOK(ZNAK)
+      GOTO (2,3,4,5,6,8),I
+2     IF (BUFOR(LP+1).NE.SE) GOTO 8
+      GOTO 7
+3     IF (BUFOR(LP+1).NE.SR) GOTO 8
+      GOTO 7
+4     IF (BUFOR(LP+1).NE.SS) GOTO 8
+      IF (BUFOR(LP+2).NE.SE) GOTO 8
+      LP=LP+1
+      GOTO 7
+C --- ALLOW FOR "<>" TO STAND FOR "NON EQUAL"
+5     IF (ZNAK.NE.50) GO TO 5055
+      IF (BUFOR(LP+1) .NE. ICHAR('>')) GO TO 5055
+      ZNAK = 49
+      GO TO 7
+C ---
+5055  IF (BUFOR(LP+1).NE.SE) GOTO 8
+      GOTO 7
+6     IF (BUFOR(LP+1).NE.ST) GOTO 8
+C  BEGINNING OF COMMENT HAS BEEN RECOGNIZED '(*'. CHECK FOR A LISTING
+C  CONTROL OPTION FOLLOWING THE COMMENT ANNOUNCEMENT. IF ONE OCCURRS
+C  THEN THE LISTING CONTROL VARIABLE IS TO BE SET PROPERLY
+      IF (BUFOR(LP+2).NE.ICHAR('$')) GOTO 7
+      LP=LP+3
+      CALL OPTSET
+7     LP=LP+1
+      ZNAK=ZNAK+7
+8     LP=LP+1
+C  END OF DETECTING COMPOUND SYMBOLS
+C  THE AUTOMATON - PART I
+      J=B(ZNAK)+1
+      I=TRANS1(J,STAN+1)
+      GOTO (190,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,
+     ,180),I
+20    SY=SEARCH(MM)
+      K=0
+      KLUCZ=KEY(SY)
+      IF (KLUCZ.EQ.(SIDENT*8)) K=2
+      K=K/2
+      OK=.TRUE.
+      GOTO 190
+30    IF (KK.LT.NB) GOTO 31
+      IF (MM.LT.TL) GOTO 32
+      CALL ERROR(212)
+      GOTO 190
+31    KK=KK+1
+cbc   COM(MM)=ISHFT(COM(MM),8)+Z
+      com(mm)=ior(ishft(z, 8), com(mm))
+cbc
+      GOTO 190
+32    KK=1
+      MM=MM+1
+      com(MM)=Z
+      GOTO 190
+40    IF (KK.LT.NB) GOTO 41
+      IF (MM.LT.NL) GOTO 42
+      CALL ERROR(211)
+      GOTO 190
+41    KK=KK+1
+      NAME(MM)=NAME(MM)*BYTE+ZNAK
+      GOTO 190
+42    KK=1
+      MM=MM+1
+      NAME(MM)=ZNAK
+      IF (ZNAK.EQ.0) NAME(MM)=60
+      GOTO 190
+50    K=2
+cdsw&bc      IF (INTPART.LT.0) GOTO 52
+      if (overfl) goto 52
+      SY=INTPART
+      GOTO 53
+52    SY=SCANHEX
+      CALL ERROR(205)
+53    INTPART=0
+      OK=.TRUE.
+      GOTO 190
+70    CALL ERROR(201)
+60    IF (SIGN.EQ.1) EXP=-EXP
+      EXP=EXP-FRAC
+cdsw&bc      IF (INTPART.LT.0) GOTO 191
+      if (overfl) goto 191
+      FRACT=INTPART
+      GOTO 192
+191   FRACT=NU
+192   IF (EXP) 200,210,193
+193   DO 195 J=1,EXP
+CJF	 IF (FRACT.GT.0.7237005E75) GOTO 207
+195   FRACT=FRACT*10.0
+      GOTO 210
+CJF 207   CALL ERROR(206)
+CJF       GOTO 210
+200   EXP=-EXP
+      DO 205 J=1,EXP
+CJF	 IF (FRACT.GT.0.AND.FRACT.LT.0.5397605E-77) GOTO 207
+205   FRACT=FRACT*0.1
+210   K=4
+      NU=FRACT
+      OK=.TRUE.
+      SIGN=0
+      EXP=0
+      INTPART=0
+      FRAC=0
+      GOTO 190
+80    K=6
+      SY=38
+      OK=.TRUE.
+      GOTO 190
+90    INTPART=ZNAK
+      GOTO 190
+110   FRAC=0
+130   FRAC=FRAC+1
+cdsw&bc 100   IF (INTPART.LT.0) GOTO 102
+100   if (overfl) goto 102
+      NU=INTPART
+cdsw&bc check for overflow
+#if ( WSIZE == 4 )
+cailvaxC  max. integer on VAX is 2147483647
+      if ( (intpart .gt. 214748364) .or. ((intpart .eq. 214748364)
+     C    .and. (znak .gt. 7)) ) overfl = .TRUE.
+      if (overfl) goto 102
+#else
+      if (intpart .gt. 3275) overfl = .TRUE.
+#endif
+      INTPART=INTPART*10+ZNAK
+cdsw&bc   IF (INTPART.GE.0) GOTO 190
+#if ( WSIZE == 4 )
+cailvaxC   overfl is .FALSE. here
+      goto 190
+#else
+      if (.not. overfl) goto 190
+#endif
+102   NU=NU*10.0+ZNAK
+      GOTO 190
+120   EXP=ZNAK
+      GOTO 190
+140   EXP=EXP*10+ZNAK
+      GOTO 190
+150   SIGN=1
+      GOTO 190
+160   STAN1=STAN
+      GOTO 190
+170   CALL ERROR(202)
+      GOTO 190
+180   IF (EXP.LT.0) GOTO 181
+      IF (ZNAK.EQ.44) GOTO 190
+      ZNAK=36
+      STAN=0
+cdsw&bc
+      exp = 0
+c
+      CALL ERROR(203)
+      GOTO 190
+181   EXP=Z
+      ZNAK=0
+190   CONTINUE
+C  THE AUTOMATON - PART II
+1000  J=B(ZNAK)+1
+      I=TRANS2(J,STAN+1)
+      GOTO (1300,1020,1030,1040,1050,1060,1070,1080,1090,1100,1110,1120,
+     ,1130,1140,1150,1160,1170,1180,1190,1200,1210),I
+1020  STAN=0
+      GOTO 1300
+1030  KK=1
+      MM=1
+      NAME(1)=ZNAK
+      STAN=1
+      GOTO 1300
+1040  KK=2
+      MM=1
+      NAME(1)=14*BYTE+ZNAK
+      STAN=1
+      GOTO 1300
+1050  STAN=2
+      GOTO 1300
+1060  STAN=5
+      GOTO 1300
+1070  STAN=9
+      GOTO 1300
+1080  STAN=8
+      GOTO 1300
+1090  STAN=3
+      GOTO 1300
+1100  SY=ZNAK
+      GOTO 2070
+1110  STAN=4
+      GOTO 1300
+1120  CALL ERROR(204)
+1130  STAN=6
+      GOTO 1300
+1140  IF (OK) GOTO 1145
+      STAN=0
+      SY=ZNAK
+      GOTO 2070
+1145  K1=6
+      SY1=ZNAK
+      STAN=0
+      OKEY=.TRUE.
+      GOTO 1300
+1150  STAN=7
+      GOTO 1300
+1160  KK=2
+      MM=1
+cdsw&bc
+      com(2) = 0
+c
+      STAN=10
+      GOTO 1300
+1170  STAN=0
+      K=4
+      S=SCONST
+      CALL TINSER
+      GOTO 3000
+1180  STAN=11
+      GOTO 1300
+1190  STAN=STAN1
+      GOTO 1300
+1200  STAN=12
+      EXP=-1
+      GOTO 1300
+1210  K=6
+      STAN=0
+      S=SCONST
+      ADRES=EXP
+       EXP=0
+      GOTO 3000
+1300  CONTINUE
+C  END OF THE SECOND PHASE
+      IF (.NOT.OK) GOTO 111
+2000  K=K+1
+      GOTO (2010,2020,2030,2040,2050,2060,2070),K
+2010  K=KLUCZ
+      S=K/8
+      ADRES=1+MOD(K,8)
+      K=SY
+      GOTO 3000
+2020  S=SIDENT
+      ADRES=SY
+      GOTO 3000
+2030  S=SCONST
+C  INTEGER CONSTANT RECOGNIZED
+      ADRES=SY
+cdsw
+      sy = 0
+      GOTO 3000
+2040  S=SCONST
+      CALL TINSER
+      GOTO 3000
+2050  S=SCONST
+      ADRES=EMBEDE(NU)
+      GOTO 3000
+2060  S=SCONST
+      ADRES=EXP
+      GOTO 3000
+2070  K=SY-37
+      GOTO (2150,2102,2103,2104,2150,2150,2150,2150,2150,2150,2105,2106,
+     ,2107,2108,2150,2150,2150,2150,2109,2110,2111),K
+2102  S=STAR
+      ADRES=3
+      GOTO 3000
+2103  S=STAR
+      ADRES=4
+      GOTO 3000
+2104  S=STAR
+      ADRES=6
+      GOTO 3000
+2105  S=STAR
+      ADRES=5
+      GOTO 3000
+2106  S=SRELAT
+      ADRES=3
+      GOTO 3000
+2107  S=SRELAT
+      ADRES=5
+      GOTO 3000
+2108  S=SRELAT
+      ADRES=7
+      GOTO 3000
+2109  S=SRELAT
+      ADRES=4
+      GOTO 3000
+2110  S=SRELAT
+      ADRES=6
+      GOTO 3000
+2111  S=SRELAT
+      ADRES=8
+      GOTO 3000
+2150  S=SY
+3000  CONTINUE
+      RETURN
+3001  K=6
+      S=70
+      OKEY=.TRUE.
+      SY1=70
+C     THE LAST TWO STATEMENT ARE INSERTED DUE TO T.SZCZEPANEK
+      RETURN
+      END
+
+      SUBROUTINE READIN
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BUFF/ INSTR(265),BUFOR(85),LP,LN,MAX,POSTR(265),STATUS
+C
+C  POSTR - BUFFER FOR AUXILIARY INPUT FILE
+C  VARIABLE STATUS DESCRIBES THE STATUS OF INPUT:
+C    1 - SOURCE TEXT IS READ FROM THE AUXILIARY INPUT
+C    0 - SOURCE TEXT IS READ FROM THE STANDARD INPUT
+C   -1 - SOURCE TEXT HAS BEEN READ UNTIL THE LAST END. NOW THE STANDARD
+C	 INPUT IS BEING SKIPPED UNTIL EOF
+C
+      COMMON /LISTING/ OUTSTR(265)
+      COMMON /STREAM/ ERRFLG,LINE,IBUF2(265),IBUF3(7),ON,JUNK(259)
+      COMMON /BLANK/ C0M(4)
+      LOGICAL BTEST
+      character*1 bufor1(85)
+      character int2char
+      integer bufor2(43)
+      equivalence (bufor1(1), bufor2(1))
+
+      I=1
+      LP=1
+	GOTO 2
+C  NOW ONE LINE IS READ FROM THE INPUT FILE
+1     LN=LN+1
+      call ffwrhex(16, ln)
+c
+      IF (BTEST(C0M(2),15)) GOTO 1001
+      call ffwrite_char(16, '0')
+c
+      GOTO 1002
+1001  call ffwrite_char(16, '1')
+c
+1002  CONTINUE
+c end of line - write CR/LF
+      call ffwrite_char(16, int2char(13))
+      call ffwrite_char(16, int2char(10))
+2     call nextch(17, bufor(1))
+      bufor(1) = iand(X'FF',bufor(1))
+      IF (BUFOR(1).EQ.1) GOTO 1
+      IF (BUFOR(1).EQ.2) RETURN
+3     I=I+1
+      call nextch(17, bufor(i))
+      bufor(i) = iand(X'FF',bufor(i))
+      if (bufor(i) .eq. 1) goto 90
+      if (i .lt. 84) goto 3
+      max = i
+      goto 100
+90    max = i-1
+100   continue
+      LN=LN+1
+      call ffwrhex(16, ln)
+c
+      IF (BTEST(C0M(2),15)) GOTO 110
+      call ffwrite_char(16, '0')
+c
+      GOTO 115
+110   call ffwrite_char(16, '1')
+c
+115   CONTINUE
+      BUFOR(max+1)=1
+      do 120 i=1,max
+120   bufor1(i) = char(bufor(i))
+      call ffwrite(16, bufor2(1), max)
+c
+      call ffwrite_char(16, int2char(13) )
+      call ffwrite_char(16, int2char(10) )
+      DO 140 I=MAX+1,85
+140   BUFOR(I)=ICHAR(' ')
+      MAX=MAX+2
+      RETURN
+      END
+
+      SUBROUTINE ERROR(K)
+C   LIS OF THE ERRORS DIAGNOSED BY THE PARSER
+C
+C   101 - :=		  EXPECTED
+C   102 - ;		      "
+C   103 - 'THEN'              "
+C   104 - 'FI', 'ELSE'        "
+C   105 - 'OD'                "
+C   106 - (		      "
+C   107 - )		      "
+C   108 - 'DO'                "
+C   109 - IDENTIFIER	      "
+C   110 - TOO MANY EXIT-S
+C   111 - ILLEGAL CHARACTER
+C   112 - STRUCTURE ERROR IN 'IF THEN ELSE FI'
+C   113 - ????????????????????????????????????????????????
+C   114 - DOT MISSING
+C   115 - WRONG OCCURRENCE OF A CONSTANT IN EXPRESSION
+C   116 -  =		  MISSING
+C   117 -  CONSTANT	  MISSING
+C   118 -  DELIMITER	  MISSING
+C   119 - CLASS/ PROCEDURE / FUNCTION	 EXPECTED
+C   120 - 'HIDDEN HIDDEN' OR 'CLOSE CLOSE'
+C   121 - HIDDEN OUTSIDE CLASS
+C   122 - 'BLOCK' MISSING
+C   123 - OBJECTEXPRESSION IS NOT A GENERATOR
+C   124 - 'DIM'                MISSING
+C   125 - 'TO' / 'DOWNTO'      MISSING
+C   126 - ILLEGAL OCCURRENCE OF AN ARITHMETIC OPERATOR
+C   127 - DECLARATIONS EXPECTED (UNIT, VAR, CONST)
+C   128 - THE NAME OCCURRING AFTER 'END' DOESN-T MATCH THE UNIT NAME
+C   129 - CASE...ESAC STRUCTURE ERROR
+C   130 - DO...OD STRUCTURE ERROR
+C   131 - ILLEGAL OCCURRENCE OF MAIN
+C   132 - WHEN EXPECTED
+C   133 - TOO MANY CASES IN 'CASE' (UPPER LIMIT = 127)
+C   134 - 'BEGIN' MISSING
+C   135 - ERROR IN OPTION DEFINITON IN COMMENT
+C   136 - NULL PROGRAM
+C   137 - WRONG HEADER OF THE SOURCE PROGRAM (BLOCK/PROGRAM MISSING)
+C   138 - TOO MANY REPEAT STATEMENTS
+C   139 - UNREACHABLE INSTRUCTIONS AFTER EXIT
+C   140 - ANDIF'S AND ORIF'S INTERLEAVE
+C   141 - SEMAPHORE TYPE PRECEDED BY ARRAYOF
+C   142 - HANDLER IMPROPERLY ENDED
+C   143 - LASTWILL OCCURRS WITHIN A COMPOUND STATEMENT OR WITHIN A HANDLER
+C   144 - LASTWILL OCURRS TWICE
+C   145 - NO PARAMETER SPECIFICATION
+C   146 - WRONG REGISTER SPECIFICATION (IMPOSSIBLE IN THE PORTABLE VERSION)
+C   147 -
+C	  OVERFLOW-TYPE ERRORS: SCANNING STOPS ON ANY OF THEM
+C   191 - NULL PROGRAM - THE INPUT FILE IS EMPTY
+C   196 - HASH TABLE OVERFLOW
+C   197 - VARIABLE OR FORMAL PARAMETER LIST TOO LONG (LENGTH>132)
+C   198 - PARSER STACK OVERFLOW
+C   199 - IPMEM TABLE OVERFLOW - NO ROOM FOR MORE PROTOTYPES
+C	  SCANNER ERRORS:
+C   201 - ERROR IN REAL CONSTANT
+C   202 - COMMENT STRUCTURE ERROR
+C   203 - ERROR IN CHARACTER CONSTANT
+C   204 - ERROR IN CONSTANT
+C   205 - VALUE OF A INTEGER CONSTANT EXCEEDS MACHINE ARITHMETIC
+C   206 -            REAL
+C   211 - IDENTIFIER TOO LONG (INITIAL 20 CHARACTERS ARE SIGNIFICANT)
+C   212 - TEXT TOO LONG (INITIAL 264 CHARACTERS ARE SIGNIFICANT)
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BUFF/ INSTR(265),BUFOR(85),LP,LN,MAX,JNK(266)
+      COMMON /LISTING/ OUTSTR(265)
+      COMMON /STREAM/ ERRFLG,LINE,IBUF2(265),IBUF3(7),ON,JUNK(259)
+      COMMON /BLANK/  C0M(4) , S , ADRES , KA , RESZTA(8185)
+      LOGICAL BTEST
+      character int2char
+      DATA EL,EP /0,0/
+
+      IF ((EL.EQ.LN).AND.(EP.GE.LP-1)) GOTO 15
+      call ffwrhex(16, ln)
+c
+      IF (BTEST(C0M(2),15)) GOTO 1
+      call ffwrite_char(16, '0')
+c
+      GOTO 2
+1     call ffwrite_char(16, '1')
+c
+2     CONTINUE
+      IF (LP.LT.3) GO TO 6
+      DO 5 I=3,LP
+5     call ffwrite_char(16, ' ')
+6     CONTINUE
+      call ffwrite_char(16, '?')
+      call ffwrint(16, k)
+c end of line - write CR/LF
+      call ffwrite_char(16, int2char(13) )
+      call ffwrite_char(16, int2char(10) )
+c
+      LINE=LN
+      IF ((K.GT.190).AND.(K.LT.200)) CALL OVERF(K)
+      CALL MERR(K,0)
+15    EP=LP
+      EL=LN
+      RETURN
+      END
+
+      INTEGER FUNCTION ORD(X)
+      IMPLICIT INTEGER (A-Z)
+cdsw	BYTE TAB(122)
+      dimension tab(122)
+C --- ORIGINAL TABLE (FOR ISO-7 CODE) CHANGED TO WORK FOR EBCDIC
+	DATA TAB /8*63,36,3*63,37,19*36,63,43,4*63,44,52,53,48,39,
+     ,42,40,38,41,0,1,2,3,4,5,6,7,8,9,47,45,50,49,51,63,63,
+     ,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,
+     ,30,31,32,33,34,35,4*63,46,
+     ,63,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,
+     ,30,31,32,33,34,35/
+      Z=X
+      IF (Z.GT.122) GOTO 10
+      ORD=TAB(Z)
+	RETURN
+10	ORD = 63
+	RETURN
+      END
+
+      INTEGER FUNCTION SEARCH(K)
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BLANK/ COM(302),
+     1	HASH(8000),  M,  NAME(10),  NLAST,  NL,
+     2	KEYS(200),
+     3	SCANER(522),  STOS(503),  RESZTA(3652)
+     
+      NAME1=NAME(1)
+      I=MOD(NAME1,M)
+      I=I*2+1
+      IF (HASH(I).NE.0) GOTO 3
+      SEARCH=I
+      HASH(I)=NAME1
+      GOTO 11
+1     IF (I.NE.0) GOTO 3
+2     NLAST=NLAST-2
+      IF (NLAST.LT.0) CALL ERROR(196)
+      IF (HASH(NLAST).NE.0) GOTO 2
+      SEARCH=NLAST
+      HASH(NLAST)=NAME(1)
+      HASH(J+1)=NLAST
+      I=NLAST
+      GOTO 11
+3     IF (HASH(I).EQ.NAME1) GOTO 4
+      J=I
+      I=HASH(J+1)
+      GOTO 10
+4     IF ((K.NE.1).OR.(HASH(I+1).LT.0)) GOTO 5
+      SEARCH=I
+      RETURN
+5     J=I
+      P=1
+6     T=HASH(J+1)
+      P=P+1
+      IF (P.LE.K) GOTO 8
+      IF (T.LT.0) GOTO 7
+      SEARCH=I
+      RETURN
+7     J=-T
+      I=HASH(J+1)
+      GOTO 10
+8     IF (T.LT.0) GOTO 9
+      I=T
+      GOTO 1
+9     J=-T
+      IF (NAME(P).EQ.HASH(J)) GOTO 6
+      I=HASH(J+1)
+10    IF (I.GE.0) GOTO 1
+      J=-I
+      I=HASH(J+1)
+      GOTO 10
+11    P=2
+12    IF (P.GT.K) RETURN
+13    NLAST=NLAST-2
+      IF (NLAST.LT.0) CALL ERROR(196)
+      IF (HASH(NLAST).NE.0) GOTO 13
+      HASH(NLAST)=NAME(P)
+      HASH(I+1)=-NLAST
+      I=NLAST
+      P=P+1
+      GOTO 12
+      END
+
+      INTEGER FUNCTION EMBEDE(X)
+C --- NAME CHANGED TO AVOID CONFLICTS IN THE 'ONE-PROGRAM' VERSION
+C --- OF THE COMPILER
+      IMPLICIT INTEGER(A-Z)
+      COMMON /BLANK/ COM(278),
+     X	      LMEM  , LPMEM , IRECN , ISFIN , LPMSYS, LPML  , LPMF  ,
+     X	      NRINT , NRRE  , NRBOOL, NRCHR , NRCOR , NRPROC, NRTEXT,
+     X	      NRUNIV, NATTR , NRNONE, NBLSYS, NBLUS , NEMPTY, INSYS ,
+     X	      LOCAL , OWN   , OBJECT,
+     x        ipmem(12890)
+cdsw X	      IPMEM(7890)
+      LOGICAL  INSYS, LOCAL, OWN
+C  IPMEM - MAIN MEMORY
+C  ISFIN - TOP OF THE PROTOTYPE DICTIONARY STACK
+C  LPMEM - DIVISION POINT OF IPMEM
+      REAL   X, STALE(200)
+      EQUIVALENCE (IPMEM(1), STALE(1))
+
+#if ! ( WSIZE == 4 )
+      real y
+      integer*2 m(2)
+      equivalence (y, m(1))
+#endif
+
+      EMBEDE = 1
+
+#if ( WSIZE == 4 )
+cvax one real constant in one ipmem element (4 bytes)
+      i = lpmem-1
+      goto 10
+5     i = i+1
+      if (stale(i).eq.x) goto 20
+10    if (i+1.lt.lpml) goto 5
+      if (lpml+1.gt.lpmf) goto 300
+      i = lpml
+      lpml=lpml+1
+      stale(i) = x
+20    embede = i
+#else
+C --- LENGTH OF REALS ON SIEMENS IS 2
+      y = x
+      i = lpmem-2
+      goto 10
+5     i = i + 2
+      if (ipmem(i) .eq. m(1) .and. ipmem(i+1) .eq. m(2)) go to 20
+10    if (i+2 .lt. lpml) go to 5
+      if (lpml+2 .gt. lpmf) go to 300
+      i = lpml
+      lpml = lpml + 2
+      ipmem(i  ) = m(1)
+      ipmem(i+1) = m(2)
+20    embede = (i+1) / 2
+#endif
+      return
+
+300   CALL ERROR(199)
+      RETURN
+      END
+
+
+      SUBROUTINE TINSER
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BLANK/
+     $	 C0M(4),
+     O	 S,	   ADRES,    K,        SCOMA,	 SDOT,	   SEMICOL,
+     1	 SCOLON,   SLEFT,    SRIGHT,   SBECOME,  STAR,	   SRELAT,
+     2	 SEOF,	   SIDENT,   SCONST,   SAND,	 SARRAY,   SARROF,
+     3	 SATTACH,  SBEGIN,   SBLOCK,   SBOOL,	 SCALL,    SCASE,
+     4	 SCLASS,   SCLOSE,   SCONS,    SCOPY,	 SCOROUT,  SDETACH,
+     5	 SDIM,	   SDO,      SDOWN,    SELSE,	 SEND,	   SESAC,
+     6	 SEXIT,    SEXTERN,  SFI,      SFOR,	 SFUNCT,   SIF,
+     7	 SINNER,   SINPUT,   SINT,     SKILL,	 SLOCK,    SNEW,
+     8	 SNONE,    SNOT,     SOD,      SOR,	 SORIF,    SOTHER,
+     9	 SOUTPUT,  SPREF,    SPRCD,    SQUA,	 SREAD,    SRESUME,
+     O	 SRETURN,  STEP,     STOP,     STAKEN,	 STHEN,    STHIS,
+     A	 STO,	   STYPE,    SUNIT,    SVAR,	 SVIRTUAL, SWAIT,
+     B	 SWHEN,    SWHILE,   SWRIT,    SWRITLN,  STRUE,    SALL,
+     C	 WAND,	   WARRAY,   WASSIGN,  WASSCON,  WATTACH,  WBLOCK,
+     D	 WCALL,    WCASE,    WCASEL,   WCOMA,	 WCNSTB,   WCNSTC,
+     E	 WCNSTI,   WCNSTN,   WCNSTR,   WCNST,	 WCOPY,    WDETACH,
+     F	 WDOT,	   WDOWNTO,  WEOF,     WESAC,	 WFIN,	   WFIRST,
+     G	 WFOREND,  WFORVAR,  WFROM,    WIDENT,	 WIFFALS,  WIFTRUE
+
+      common /BLANK/
+     H	 WINNER,   WINSTREND,WJUMP,    WKILL,	 WLABEL,   WLEFT,
+     I	 WLOCK,    WLOW,     WLSE,     WNEW,	 WNEWARRAY,WNOT,
+     J	 WOPERAT,  WOPT,     WOR,      WOTHER,	 WPREF,    WPRIM,
+     K	 WQUA,	   WREAD,    WRELAT,   WRESUME,  WRETURN,  WRIGHT,
+     L	 WSTART,   WSTEP,    WSTOP,    WTHIS,	 WTO,	   WAIT,
+     M	 WRITE,    WRITELN,  WBOUND,   UNICAL,
+     N	 COM(132),
+     O	 LMEM,	   LPMEM,    IRECN,    ISFIN,	 LPMSYS,   LPML,
+     P	 LPMF,	   NRINT,    NRRE,     NRBOOL,	 NRCHAR,   NRCOR,
+     Q	 NRPROC,   NRTEXT,   NRUNIV,   NATTR,	 NRNONE,   NBLSYS,
+     R	 NBLUS,    NEMPTY,   INSYS,    LOCAL,	 OWN,	   OBJECT,
+     S	 HASH(8000), M,      NAME(10), NLAST,    NL,
+     T	 KEYS(200),
+     U	 TRANS1(13,13),      TRANS2(13,13),	 B0,	   B(70),
+     V	 SKOK0,    SKOK(70), KK,       MM,	 STAN,	   STAN1,
+     W	 AUX,	   K1,	     SY,       SY1,	 NU, JK1,  EXP,
+     X	 SIGN,	   INTPART,  FRAC,     OKEY,	 FRACT,JK2,NB,
+     Y	 TL,	   BYTE,     TEXT(20),
+     Z	 TOP,	   IN,	     NEXT,     STACK(500)
+
+      common /BLANK/
+     *	 RESZTA(3652)
+      REAL   FRACT,NU
+      COMMON /STREAM/ ERRFLG,LINE,IBUF2(265),BUF(7),ON,BUFOUT(256),
+     X		      POSIT,RECNR,NEKST
+      LOGICAL ERRFLG
+      logical btest
+      character int2char
+
+      integer zero(2)
+      character stringbuffer(2)
+      integer istringbuffer(1)
+      equivalence (stringbuffer(1),istringbuffer(1))
+cvax  
+      character zeroc(8)
+      equivalence (zero(1), zeroc(1))
+c
+      data zero /0, 0/
+cbc
+      ADRES=0
+      IF (ERRFLG) RETURN
+      IF (COM(2).EQ.0) RETURN
+      ADRES=TEXT(1)
+      LENGTH=2*MM-2
+      IF (COM(MM).LT.256) LENGTH=LENGTH-1
+c write string length (in bytes)
+      call ffwrite_ints(15, length, 1)
+c write string itself without any padding
+      l = length / 2
+cdsw - poprawka na wszelki wypadek
+      if (l.eq.0) goto 101
+c
+      do 100 i = 1, l
+      stringbuffer(1)=int2char(iand(com(1+i),X'FF'))
+      stringbuffer(2)=int2char(ishft(com(1+i),-8))
+100   call ffwrite(15,istringbuffer(1),2)
+101   continue
+      if (mod(length, 2) .ne. 1)  goto 102
+      stringbuffer(1)=int2char(iand(com(2+l),X'FF'))
+      call ffwrite(15, istringbuffer(1), 1)
+102   continue
+
+c compute the number of trailing zero bytes
+#if ( WSIZE == 4 )
+      wrdsiz = 4
+#else
+      wrdsiz=2
+      if (btest(c0m(2), 12)) wrdsiz=4
+#endif
+
+      fill=wrdsiz-mod(length, wrdsiz)
+c and write them
+      call ffwrite(15, zero, fill)
+c compute next string address
+      text(1) = text(1) + 1 + (length+fill)/wrdsiz
+      RETURN
+      END
+
+      INTEGER FUNCTION KEY ( ADR )
+
+C
+C   COMPUTES KEY OF THE ENCOUNTERED WORD. IT-S ADDRESS IS PASSED THRU
+C   ADR.
+C
+C   STRUCTURE OF KEY TABLE:
+C
+C	  KEYS(2*N)   - ADDRESS OF A KEYWORD
+C	  KEYS(2*N-1) - KEY OF THIS WORD
+C
+C   NOTE:  FOR THE WORDS THAT DO NOT OCCUR IN THE DICTIONARY
+C	   THE FUNCTION RETURNS IDENTIFIER KEYS
+C
+      IMPLICIT INTEGER (A-Z)
+      COMMON /BLANK/ C0M(146),COM(132),XX(8037),KEYS(200),RESZTA(4677)
+C --- SPECIAL CHECK IS MADE HERE FOR THE ENTRIES WHICH ARE MISSING
+C --- IN THE HASH TABLE AND IN 'KEYS'
+C
+C --- READLN
+      IF (ADR.NE.1833) GO TO 9999
+      KEY = 256
+      RETURN
+C --- END OF CHECK FOR MISSING KEYS
+c   get
+9999  if(adr.ne.59) go to 9998
+      key = 249
+      return
+c   put
+9998  if(adr.ne.1243) go to 9997
+      key = 248
+      return
+c  file
+9997  if(adr.ne.2339) go to 9996
+      key = 518
+      return
+c   open
+9996  if(adr.ne.2347) go to 9995
+      key = 240
+      return
+c   eof
+9995  if(adr.ne. 1841) go to 9994
+      key = 480
+      return
+c   eoln
+9994  if(adr.ne.2579) go to 9993
+      key = 481
+      return
+c   text - key jak dla string
+9993  if(adr.ne.2249) go to 9992
+      key = 517
+      return
+c  direct - klasa 64/7 - jak dla typow pierwotnych
+9992  if (adr .ne. 2097) goto 8888
+      key = 519
+      return
+c  putrec - klasa 34/0
+8888  if (adr .ne. 2075) goto 8889
+      key = 272
+      return
+c  getrec - klasa 34/1
+8889  if (adr .ne. 2081) go to 8890
+      key = 273
+      return
+cbc    ----- added concurrent statements
+c  enable - klasa 35/0
+8890  if (adr .ne. 2047) goto 8891
+      key = 280
+      return
+c  disable - klasa 35/1
+8891  if (adr .ne. 2041) goto 8892
+      key = 281
+      return
+c  accept - klasa 36/0
+8892  if (adr .ne. 2053) goto 8893
+      key = 288
+      return
+cbc   -----------  end
+c    break
+8893  if(adr.ne.1463) go to 9991
+      key = 264
+      return
+9991  CONTINUE
+      KEY=1*8
+      LEFT=1
+      RIGHT=COM(1)
+      IF (KEYS(2*LEFT)-ADR) 30,20,10
+10    RETURN
+20    POINT=LEFT
+      GOTO 200
+30    IF (KEYS(2*RIGHT)-ADR) 10,40,50
+40    POINT=RIGHT
+      GOTO 200
+50    POINT=(LEFT+RIGHT)/2
+      IF (KEYS(2*POINT)-ADR) 100,200,300
+100   IF (LEFT.EQ.POINT) RETURN
+      LEFT=POINT
+      GOTO 50
+200   KEY=KEYS(2*POINT-1)
+      RETURN
+300   RIGHT=POINT
+      GOTO 50
+      END
+
