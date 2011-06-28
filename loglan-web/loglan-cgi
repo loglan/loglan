@@ -1,0 +1,11 @@
+#!/bin/bash
+echo "Content-type: text/plain";
+echo ""
+echo ""
+#todo - find better way of removing file ext
+#todo - find better way were to store temp files rather then allow them to be produced in /var/www
+TMP=(${PATH_TRANSLATED//./ });
+L=${TMP[0]};
+/usr/lib/cgi-bin/loglan $L
+/usr/lib/cgi-bin/gen $L
+/usr/lib/cgi-bin/int $L
