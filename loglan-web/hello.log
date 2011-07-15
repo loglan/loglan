@@ -1,0 +1,9 @@
+program HelloWeb
+	begin
+		writeln("<html>");
+		writeln("<head></head>");
+		writeln("<body>");
+		writeln("<h1>Hello Loglan web !</h1>");
+		writeln("</body>");
+		writeln("</html>");
+end HelloWeb;
