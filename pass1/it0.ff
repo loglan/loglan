@@ -100,15 +100,15 @@ c   pozopt -  options position in param
     	
       common /jf/jfname(72),jf
 
-      call ffputnl(0)
-      call ffputcs(0,' LOGLAN-82  UNIX Compiler, Version 2.1')
-      call ffputnl(0)
-      call ffputcs(0,' January 10, 1993')
-      call ffputnl(0)
-      call ffputcs(0,' (C)Copyright  Institute of Informatics,')
-      call ffputcs(0,' University of Warsaw')
-      call ffputcs(0,' (C)Copyleft   LITA Universite de Pau')
-      call ffputnl(0)
+c      call ffputnl(0)
+c      call ffputcs(0,'LOGLAN-82  UNIX Compiler, Version 2.1')
+c      call ffputnl(0)
+c      call ffputcs(0,' January 10, 1993')
+c      call ffputnl(0)
+c      call ffputcs(0,' (C)Copyright  Institute of Informatics,')
+c      call ffputcs(0,' University of Warsaw')
+c      call ffputcs(0,' (C)Copyleft   LITA Universite de Pau')
+c      call ffputnl(0)
 
       ierc = 0
       msg = 'it0 '
@@ -122,7 +122,7 @@ c   pozopt -  options position in param
 200   continue
 c  prompt       
 
-      call ffputcs(0,' File name: ')
+      call ffputcs(0,'Provide source file name (max 70 chars): ')
       call ffgets (0,param,70)
 
       dl = 70
@@ -1000,10 +1000,10 @@ C  ROZPOZNANO 'T'
       GOTO 10
 9999  C0M(2)=IOR(C0M(3),IAND(C0M(4),C0M(2)))
 
-      call ffputnl(0)
-      call ffputcs(0,' Pass One')
-      call ffputnl(0)
-      call ffputnl(0)
+c      call ffputnl(0)
+c      call ffputcs(0,' Pass One')
+c      call ffputnl(0)
+c      call ffputnl(0)
 
       RETURN
       END

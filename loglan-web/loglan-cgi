@@ -1,6 +1,5 @@
 #!/bin/bash
-echo "Content-type: text/plain";
-echo ""
+echo "Content-type: text/html";
 echo ""
 #todo - find better way of removing file ext
 #todo - find better way were to store temp files rather then allow them to be produced in /var/www

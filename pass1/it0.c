@@ -208,7 +208,7 @@ static integer c__70 = 70;
     static integer i__;
     extern /* Subroutine */ int wan_(void), data_(void), mess_(void), data2_(
 	    void), data3_(void), ffgets_(integer *, char *, integer *, ftnlen)
-	    , ffputcs_(integer *, char *, ftnlen), ffputnl_(integer *);
+	    , ffputcs_(integer *, char *, ftnlen);
 
 /*  parlen - dlugosc linii z parametrami dla kompilatora */
 /*  parbuf - bufor zawierajacy parametry dla kompilatora */
@@ -270,19 +270,19 @@ static integer c__70 = 70;
 /*   param - line of program parameters */
 /*   dl - length of program parameters */
 /*   pozopt -  options position in param */
+/*      call ffputnl(0) */
+/*      call ffputcs(0,'LOGLAN-82  UNIX Compiler, Version 2.1') */
+/*      call ffputnl(0) */
+/*      call ffputcs(0,' January 10, 1993') */
+/*      call ffputnl(0) */
+/*      call ffputcs(0,' (C)Copyright  Institute of Informatics,') */
+/*      call ffputcs(0,' University of Warsaw') */
+/*      call ffputcs(0,' (C)Copyleft   LITA Universite de Pau') */
+/*      call ffputnl(0) */
     /* Parameter adjustments */
     --parbuf;
 
     /* Function Body */
-    ffputnl_(&c__0);
-    ffputcs_(&c__0, " LOGLAN-82  UNIX Compiler, Version 2.1", (ftnlen)38);
-    ffputnl_(&c__0);
-    ffputcs_(&c__0, " January 10, 1993", (ftnlen)17);
-    ffputnl_(&c__0);
-    ffputcs_(&c__0, " (C)Copyright  Institute of Informatics,", (ftnlen)40);
-    ffputcs_(&c__0, " University of Warsaw", (ftnlen)21);
-    ffputcs_(&c__0, " (C)Copyleft   LITA Universite de Pau", (ftnlen)37);
-    ffputnl_(&c__0);
     mjlmsg_1.ierc = 0;
     s_copy(mjlmsg_1.msg, "it0 ", (ftnlen)4, (ftnlen)4);
     for (jf_1.jf = 1; jf_1.jf <= 70; ++jf_1.jf) {
@@ -302,7 +302,7 @@ static integer c__70 = 70;
     par_1.pozopt = 0;
 L200:
 /*  prompt */
-    ffputcs_(&c__0, " File name: ", (ftnlen)12);
+    ffputcs_(&c__0, "Provide source file name (max 70 chars): ", (ftnlen)41);
     ffgets_(&c__0, par_1.param, &c__70, (ftnlen)1);
     par_1.dl = 70;
 /* file name is in  param */
@@ -1174,10 +1174,10 @@ L845:
     goto L10;
 L9999:
     blank_5.c0m[1] = blank_5.c0m[2] | blank_5.c0m[3] & blank_5.c0m[1];
-    ffputnl_(&c__0);
-    ffputcs_(&c__0, " Pass One", (ftnlen)9);
-    ffputnl_(&c__0);
-    ffputnl_(&c__0);
+/*      call ffputnl(0) */
+/*      call ffputcs(0,' Pass One') */
+/*      call ffputnl(0) */
+/*      call ffputnl(0) */
     return 0;
 } /* optdef_ */
 

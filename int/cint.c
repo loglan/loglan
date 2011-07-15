@@ -141,12 +141,13 @@ char **argv;
     long m;
     int c;
     char *filename=NULL;
-
+/*
     fprintf(stderr,"\n LOGLAN-82  Concurrent Executor  Version 4.51\n");
     fprintf(stderr," January 21, 1993\n");
     fprintf(stderr,
             " (C) Copyright Institute of Informatics University of Warsaw\n");
     fprintf(stderr," (C) Copyleft LITA  Universite de Pau\n");
+
 #if DLINK
     fprintf(stderr," D-LINK version 3.21\n\n");
 #elif TCPIP
@@ -155,7 +156,7 @@ char **argv;
     fprintf(stderr,"\n");
 #endif
     fflush(stderr);
-
+*/
 #if DLINK
     ournode = net_logon(msginterrupt);
     if (ournode >= 0)      /* network driver installed */

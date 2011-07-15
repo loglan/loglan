@@ -37,16 +37,16 @@ void setfiles(name) char *name;{
  
  strcpy(work, name) ;
  strcat(work, ".lcd") ;
- printf("Fopen lcd: %s\n", work); fflush(stdout);
+/* printf("Fopen lcd: %s\n", work); fflush(stdout); */
  lfile = fopen(work, "rb");
  if(lfile == NULL) 
  { puts(strcat("Couldn't open file ", work)) ;
    exit(8) ; 
  }
- puts("lcd opened.");fflush(stdout);
+/* puts("lcd opened.");fflush(stdout);*/
  strcpy(work, name) ;
  strcat(work, ".pcd") ;
- puts("Fopen pcd");fflush(stdout);
+/* puts("Fopen pcd");fflush(stdout);*/
  pfile = fopen(work, "wb") ;
  
  strcpy(work, name) ;

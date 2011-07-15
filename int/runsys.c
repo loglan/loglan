@@ -270,7 +270,7 @@ int status;
 {
     fflush(stdout);
 
-    fprintf(stderr, "\n\nEnd of LOGLAN-82 program execution\n");fflush(stderr);
+/*    fprintf(stderr, "\n\nEnd of LOGLAN-82 program execution\n");fflush(stderr);*/
 #if DLINK
     net_logoff();
 #endif

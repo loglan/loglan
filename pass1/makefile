@@ -93,6 +93,9 @@ clean:
 	-rm -f loglan.out
 	-rm -f state.rst
 
+install:
+	cp loglan /usr/bin/
+
 al11.o : al11.ff blank.h blank2.h option.h stos.h
 al12.o : al12.ff blank.h blank2.h option.h stos.h
 al13.o : al13.ff blank.h blank2.h option.h stos.h

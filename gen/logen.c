@@ -276,18 +276,21 @@ void main(argc,argv) int argc; char *argv[];{
 
   m = (address *) calloc(sizeof(address), MEMLIMIT + 1) ;
 
-   puts("") ;
+/*   puts("") ;
    puts(" LOGLAN-82  Compiler  Version 4.00") ;
    puts(" January 10, 1993") ;
    puts(" (C)Copyright  Institute of Informatics, University of Warsaw") ;
    puts(" (C)Copyleft   LITA Universite de Pau");
    puts("\n Pass Two\n") ; fflush(stdout);
+*/
    if(argc < 2){ printf("Usage : %s filename\n",argv[0]); exit(8); }
 #if (TALK >= 1)
    puts("Setting files...") ; fflush(stdout);
 #endif
    setfiles(argv[1]) ;
+#if (TALK >= 1)
   puts("Files set");fflush(stdout);
+#endif
   fre  =  2 ;                      /* SKIP TWO WORDS RESERVED FOR DUMMY VIRT. */
   m[fre++]  =  0 ; /* dsw*//* free == currfile */
   m[fre++]  =  0 ; /* place for file virtual address */ /*dsw*/

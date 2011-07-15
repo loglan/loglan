@@ -101,3 +101,6 @@ herc : herc.c
 clean :
 	rm *.o
 	rm int
+
+install:
+	cp int /usr/bin/int
